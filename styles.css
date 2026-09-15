@@ -1608,3 +1608,181 @@ h4 {
     align-items: flex-start;
   }
 }
+
+/* Modern portfolio refinements: stronger type, contrast, and project-specific accents. */
+body {
+  font-size: 16px;
+}
+
+.page-shell {
+  max-width: 1240px;
+}
+
+.topbar {
+  margin-bottom: 30px;
+}
+
+.hero {
+  position: relative;
+  min-height: 600px;
+  padding-top: 86px;
+  padding-bottom: 86px;
+}
+
+.hero::after {
+  content: "01 / 04";
+  position: absolute;
+  right: 0;
+  bottom: 24px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.hero-copy h2 {
+  max-width: 840px;
+  font-size: clamp(3.8rem, 8vw, 8rem);
+  line-height: 0.91;
+}
+
+.hero-copy p,
+.mini-card p:last-child,
+.project-card p,
+.video-card p,
+.process-grid p,
+.story-content p,
+.impact-stats p:last-child,
+.impact-stats li {
+  font-size: 16px;
+  line-height: 1.85;
+}
+
+.hero-copy p {
+  max-width: 650px;
+  font-size: 1.1rem;
+}
+
+.info-panel {
+  border-left: 1px solid var(--line);
+  padding-left: 34px;
+}
+
+.metrics-grid strong {
+  font-size: 3rem;
+}
+
+.projects-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.project-card {
+  min-height: 270px;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-card .meta-row {
+  margin-top: auto;
+}
+
+.project-card:nth-child(3n + 1) {
+  border-top: 3px solid var(--blue);
+}
+
+.project-card:nth-child(3n + 2) {
+  border-top: 3px solid var(--purple);
+}
+
+.project-card:nth-child(3n) {
+  border-top: 3px solid var(--green);
+}
+
+.project-card:nth-child(3n + 2) .repo-icon::before {
+  background: var(--purple);
+}
+
+.project-card:nth-child(3n) .repo-icon::before {
+  background: var(--green);
+}
+
+.section-header h3,
+.section-title-row h3,
+.process h3 {
+  font-size: 2.5rem;
+}
+
+.community-showcase .story-copy h3 {
+  font-size: clamp(2.6rem, 5vw, 4.8rem);
+  line-height: 0.96;
+}
+
+.community-page-shell .story-grid {
+  gap: 22px;
+}
+
+.community-page-shell .story-card {
+  border-top: 3px solid var(--purple);
+}
+
+.community-page-shell .story-card:nth-child(2) {
+  border-top-color: var(--green);
+}
+
+.community-page-shell .story-card:nth-child(3) {
+  border-top-color: var(--blue);
+}
+
+@media (max-width: 980px) {
+  .hero {
+    min-height: 0;
+    padding-top: 54px;
+    padding-bottom: 64px;
+  }
+
+  .hero-copy h2 {
+    font-size: clamp(3.4rem, 9vw, 6rem);
+  }
+
+  .info-panel {
+    border-left: 0;
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding-top: 36px;
+    padding-bottom: 50px;
+  }
+
+  .hero::after {
+    bottom: 14px;
+  }
+
+  .hero-copy h2 {
+    font-size: clamp(3.2rem, 15vw, 5rem);
+  }
+
+  .hero-copy p,
+  .mini-card p:last-child,
+  .project-card p,
+  .video-card p,
+  .process-grid p,
+  .story-content p,
+  .impact-stats p:last-child,
+  .impact-stats li {
+    font-size: 15px;
+  }
+
+  .projects-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-header h3,
+  .section-title-row h3,
+  .process h3 {
+    font-size: 2.1rem;
+  }
+}
