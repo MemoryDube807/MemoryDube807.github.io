@@ -930,27 +930,27 @@ h4 {
 
 /* Editorial layer: a publication-like system for the portfolio and community pages. */
 :root {
-  --bg: #071412;
-  --bg-2: #10201c;
-  --panel: #10221d;
-  --panel-strong: #183229;
-  --card: #10221d;
-  --card-soft: #142a23;
-  --line: rgba(182, 211, 194, 0.2);
-  --text: #f2f6e9;
-  --muted: #afc1b3;
-  --blue: #7dd3b0;
-  --cyan: #c8ead7;
-  --purple: #f0a477;
-  --green: #b8e986;
-  --shadow: 0 18px 38px rgba(1, 12, 8, 0.32);
+  --bg: #08090b;
+  --bg-2: #111318;
+  --panel: #121419;
+  --panel-strong: #1a1d24;
+  --card: #121419;
+  --card-soft: #181b22;
+  --line: rgba(226, 232, 240, 0.18);
+  --text: #f4f1ea;
+  --muted: #a9adb7;
+  --blue: #77b7ff;
+  --cyan: #bde7ff;
+  --purple: #ff9d78;
+  --green: #c5e86c;
+  --shadow: 0 18px 38px rgba(0, 0, 0, 0.42);
 }
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(125, 211, 176, 0.14), transparent 23%),
-    radial-gradient(circle at bottom right, rgba(240, 164, 119, 0.1), transparent 25%),
-    linear-gradient(180deg, var(--bg) 0%, #091b17 100%);
+    radial-gradient(circle at top left, rgba(119, 183, 255, 0.1), transparent 23%),
+    radial-gradient(circle at bottom right, rgba(255, 157, 120, 0.08), transparent 25%),
+    linear-gradient(180deg, var(--bg) 0%, #0b0c10 100%);
   color: var(--text);
 }
 
@@ -1465,8 +1465,8 @@ h4 {
 
 .community-page-body {
   background:
-    radial-gradient(circle at top left, rgba(125, 211, 176, 0.14), transparent 23%),
-    linear-gradient(180deg, var(--bg) 0%, #091b17 100%);
+    radial-gradient(circle at top left, rgba(119, 183, 255, 0.1), transparent 23%),
+    linear-gradient(180deg, var(--bg) 0%, #0b0c10 100%);
 }
 
 .community-hero {
