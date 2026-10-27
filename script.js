@@ -1,148 +1,110 @@
 const projects = [
   {
-    name: "Copperbelt Reservoir Monitor",
-    language: "Python, Landsat, Chart.js",
+    name: "ndwi-copperbelt",
+    language: "Python, Jupyter",
     description:
-      "A dashboard and report on 30 years of satellite water data at five Copperbelt dams, showing which reservoir is shrinking and why.",
+      "Tracks 30 years of Landsat water and vegetation data at five Copperbelt dams, showing which reservoir is shrinking, whether rainfall explains it, and whether the land around it is drying.",
     link: "https://github.com/MemoryDube807/ndwi-copperbelt",
     demo: "projects/ndwi-copperbelt/index.html",
     demoLabel: "Dashboard & report",
     sameTab: true
   },
   {
-    name: "Spatial Climate Trend Analyzer",
-    language: "Python, xarray, CMIP6, Chart.js",
+    name: "Spatial-Climate-Trend-Analysis",
+    language: "Python, Jupyter",
     description:
-      "A dashboard and report on 30 years of climate model data for Zambia, showing where it is warming fastest by grid cell, district and province.",
+      "Maps 1981-2010 MIROC6 temperature and rainfall trends across Zambia's districts, using Sen's slope and Mann-Kendall tests to show where change is strongest and statistically significant.",
     link: "https://github.com/MemoryDube807/Spatial-Climate-Trend-Analysis",
     demo: "projects/spatial-climate-trend-analysis/index.html",
     demoLabel: "Dashboard & report",
     sameTab: true
   },
   {
-    name: "Memo Weather App",
-    language: "HTML, CSS, JavaScript, API",
+    name: "climate_data_analysis",
+    language: "Python, Jupyter",
     description:
-      "A front-end weather application created to deliver live forecast data in a clean, user-friendly interface.",
-    link: "https://github.com/MemoryDube807",
+      "Profiles 34 years of ERA5 weather data from four Zambian stations, checking missing values, physical errors, and genuine extremes with robust and multivariate anomaly tests.",
+    link: "https://github.com/MemoryDube807/climate_data_analysis",
+    demo: ""
+  },
+  {
+    name: "LARS-WG-Climate-Analysis",
+    language: "R",
+    description:
+      "Processes multi-GCM LARS-WG projections into ensembles and compares rainfall and temperature across Southern Hemisphere hydrological seasons.",
+    link: "https://github.com/MemoryDube807/LARS-WG-Climate-Analysis",
+    demo: ""
+  },
+  {
+    name: "flood-risk-calculator",
+    language: "Python, Flask",
+    description:
+      "Scores flood risk from 48-hour rainfall, elevation, drainage, and soil, then returns a risk level and practical action advisory through a CLI and Flask dashboard.",
+    link: "https://github.com/MemoryDube807/flood-risk-calculator",
+    demo: ""
+  },
+  {
+    name: "zambia-climate-trend-analysis",
+    language: "Python, Jupyter",
+    description:
+      "Explores historical CMIP6 MIROC6 maximum and minimum temperatures and precipitation across Zambia from 1981 to 2010.",
+    link: "https://github.com/MemoryDube807/zambia-climate-trend-analysis",
+    demo: ""
+  },
+  {
+    name: "weather_app_project",
+    language: "HTML, CSS, JavaScript, Python",
+    description:
+      "A city-search weather dashboard that displays current conditions and a multi-day forecast.",
+    link: "https://github.com/MemoryDube807/weather_app_project",
     demo: "https://memo-weather.netlify.app/"
   },
   {
-    name: "ZamClimWatch",
-    language: "Python, Streamlit, API",
+    name: "my-first-project",
+    language: "HTML, CSS, JavaScript",
     description:
-      "An interactive environmental monitoring application for visualizing air quality and climate-related indicators in real time.",
-    link: "https://github.com/MemoryDube807",
-    demo: ""
+      "An early frontend project: search for a city and view its current weather and forecast.",
+    link: "https://github.com/MemoryDube807/my-first-project",
+    demo: "https://memory-dube-weather-app.netlify.app/"
   },
   {
-    name: "AI-Tutor ZW",
-    language: "Python, AI",
+    name: "my-She-Codes-Project",
+    language: "HTML",
     description:
-      "A bilingual, offline-first educational assistant aligned with the Zimbabwean curriculum to support student revision and learning.",
-    link: "https://github.com/MemoryDube807",
+      "A small static landing page from an early web development project.",
+    link: "https://github.com/MemoryDube807/my-She-Codes-Project",
     demo: ""
-  },
-  {
-    name: "Katikafwe Private School DBMS",
-    language: "SQL",
-    description:
-      "A custom database system designed to support school operations, records management, and administrative efficiency.",
-    link: "https://github.com/MemoryDube807",
-    demo: ""
-  }
-];
-
-const communityProjects = [
-  {
-    name: "Pad Drive for High School Girls",
-    language: "Community outreach",
-    description:
-      "A recurring initiative focused on improving menstrual health access and helping girls remain in education without interruption.",
-    link: "https://github.com/MemoryDube807",
-    demo: ""
-  },
-  {
-    name: "Campus Tree Planting Initiatives",
-    language: "Environmental action",
-    description:
-      "Environmental conservation and awareness activities designed to promote sustainability, stewardship, and community engagement.",
-    link: "https://github.com/MemoryDube807",
-    demo: ""
-  }
-];
-
-const videos = [
-  {
-    title: "ZamClimWatch App Walkthrough",
-    description: "A brief walkthrough of the application and the climate-monitoring insights it supports.",
-    embed: "https://www.youtube.com/embed/ScMzIvxBSi4?rel=0&mute=1"
-  },
-  {
-    title: "Community Tree Planting & Outreach Showcase",
-    description: "A short look at outreach and environmental action activities focused on sustainability and community impact.",
-    embed: "https://www.youtube.com/embed/dQw4w9WgXcQ?rel=0&mute=1"
   }
 ];
 
 const projectGrid = document.getElementById("projectsGrid");
-const communityGrid = document.getElementById("communityGrid");
-const videoGrid = document.getElementById("videoGrid");
 
 function renderProjects(items, container) {
   container.innerHTML = items
-    .map(
-      (item) => {
-        const demoTarget = item.sameTab ? "" : ' target="_blank" rel="noreferrer"';
-        const demoButton = item.demo
-          ? `<a href="${item.demo}"${demoTarget}>${item.demoLabel || "Live demo"}</a>`
-          : "";
+    .map((item) => {
+      const demoTarget = item.sameTab ? "" : ' target="_blank" rel="noreferrer"';
+      const demoButton = item.demo
+        ? `<a href="${item.demo}"${demoTarget}>${item.demoLabel || "Live demo"}</a>`
+        : "";
 
-        return `
-          <article class="project-card">
-            <div class="project-top">
-              <span class="repo-icon">${item.name}</span>
-              <span class="lang">${item.language}</span>
-            </div>
-            <p>${item.description}</p>
-            <div class="project-links">
-              <a href="${item.link}" target="_blank" rel="noreferrer">Repository</a>
-              ${demoButton}
-            </div>
-          </article>
-        `;
-      }
-    )
-    .join("");
-}
-
-function renderVideos(items) {
-  videoGrid.innerHTML = items
-    .map(
-      (item) => `
-        <article class="video-card">
-          <div class="video-embed">
-            <iframe
-              src="${item.embed}"
-              title="${item.title}"
-              loading="lazy"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowfullscreen
-            ></iframe>
+      return `
+        <article class="project-card">
+          <div class="project-top">
+            <span class="repo-icon">${item.name}</span>
+            <span class="lang">${item.language}</span>
           </div>
-          <div class="video-body">
-            <h4>${item.title}</h4>
-            <p>${item.description}</p>
+          <p>${item.description}</p>
+          <div class="project-links">
+            <a href="${item.link}" target="_blank" rel="noreferrer">Repository</a>
+            ${demoButton}
           </div>
         </article>
-      `
-    )
+      `;
+    })
     .join("");
 }
 
 renderProjects(projects, projectGrid);
-renderProjects(communityProjects, communityGrid);
-renderVideos(videos);
 
 const currentYear = new Date().getFullYear();
 console.log(`Portfolio ready for ${currentYear}`);
