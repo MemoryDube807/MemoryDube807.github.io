@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Copperbelt Reservoir Monitor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Thirty years of Landsat NDWI at five Copperbelt dams in Zambia, with an interactive dashboard and a full write-up by Memory Dube.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: an article column for the write-up, with figures breaking out wider and the dashboard in its own full-width band. Blue means water, brown means dry, as in the notebook figures. */
+:root {
+  --bg: #F4F6F8; --surface: #FFFFFF; --sunk: #E9EEF2; --ink: #102030; --ink-2: #33475A; --muted: #5A6E80; --line: #D3DCE4;
+  --accent: #1B5C8A; --warm: #9C541D;
+  --s-rains: #24589A; --s-dry: #3F8FCB; --s-dec: #B5651D; --s-ndwi: #2166AC; --s-ndvi: #3A8C3F; --s-pos: #2166AC; --s-neg: #A6611A;
+  --drought: rgba(166, 97, 26, 0.13);
+  --bad: #8F3A12; --bad-bg: #F7E4D8; --info: #1B5C8A; --info-bg: #E1ECF5; --good: #2B6631; --good-bg: #E0EFE1; --flat: #4A5C66; --flat-bg: #E6ECEE;
+  --lc-tree: #2F6B34; --lc-shrub: #C99A2E; --lc-grass: #A8B84A; --lc-crop: #B565A7; --lc-other: #9AA6B0;
+  --f-display: "DM Serif Display", Georgia, "Times New Roman", serif;
+  --f-body: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #080D16; --surface: #111B2B; --sunk: #0C1422; --ink: #EEF4FF; --ink-2: #C3CFDF; --muted: #93A4BA; --line: #23324A;
+  --accent: #72B7FF; --warm: #E0A26C;
+  --s-rains: #5A7FE6; --s-dry: #1C9EA3; --s-dec: #C27A36; --s-ndwi: #4E8FE0; --s-ndvi: #3FA650; --s-pos: #4E8FE0; --s-neg: #D08A45;
+  --drought: rgba(208, 138, 69, 0.16);
+  --bad: #F2AE85; --bad-bg: #3A2419; --info: #9CC8EE; --info-bg: #16324A; --good: #96D49B; --good-bg: #183020; --flat: #B3C3CB; --flat-bg: #1D2D36;
+  --lc-tree: #4E9E55; --lc-shrub: #D9AE45; --lc-grass: #B9C85E; --lc-crop: #C77DBA; --lc-other: #6F7E8C;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #080D16; --surface: #111B2B; --sunk: #0C1422; --ink: #EEF4FF; --ink-2: #C3CFDF; --muted: #93A4BA; --line: #23324A;
+  --accent: #72B7FF; --warm: #E0A26C;
+  --s-rains: #5A7FE6; --s-dry: #1C9EA3; --s-dec: #C27A36; --s-ndwi: #4E8FE0; --s-ndvi: #3FA650; --s-pos: #4E8FE0; --s-neg: #D08A45;
+  --drought: rgba(208, 138, 69, 0.16);
+  --bad: #F2AE85; --bad-bg: #3A2419; --info: #9CC8EE; --info-bg: #16324A; --good: #96D49B; --good-bg: #183020; --flat: #B3C3CB; --flat-bg: #1D2D36;
+  --lc-tree: #4E9E55; --lc-shrub: #D9AE45; --lc-grass: #B9C85E; --lc-crop: #C77DBA; --lc-other: #6F7E8C;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+a { color: var(--accent); text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+h1, h2, h3, h4 { margin: 0; font-weight: 400; text-wrap: balance; }
+h1 { font-family: var(--f-display); font-size: clamp(2.1rem, 4.4vw, 3.3rem); line-height: 1.08; }
+h2 { font-family: var(--f-display); font-size: clamp(1.6rem, 2.8vw, 2.1rem); line-height: 1.15; }
+h3 { font-family: var(--f-display); font-size: 1.35rem; line-height: 1.2; }
+h4 { font-size: 1rem; font-weight: 600; }
+p { margin: 0; }
+.mono, td.n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+.top { border-bottom: 1px solid var(--line); background: var(--surface); }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; padding-block: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 600; }
+.mark { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); display: grid; place-items: center; font-family: var(--f-display); font-size: 0.95rem; color: var(--ink); background: var(--sunk); }
+.top nav { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.93rem; }
+.top nav a { color: var(--ink-2); text-decoration: none; }
+.top nav a:hover { color: var(--accent); text-decoration: underline; }
+
+.hero .wrap { padding-block: 52px 36px; display: flex; flex-direction: column; gap: 20px; }
+.hero h1 { max-width: 22ch; }
+.abstract { max-width: 68ch; font-size: 1.1rem; color: var(--ink-2); display: flex; flex-direction: column; gap: 12px; }
+.byline { font-size: 0.93rem; color: var(--muted); max-width: 68ch; }
+.links { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 15px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; font-size: 0.93rem; font-weight: 500; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn:hover { border-color: var(--accent); }
+
+.found { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.found table { min-width: 720px; }
+.found td:first-child { font-weight: 600; width: 26%; }
+.found td:nth-child(2) { width: 22%; }
+.found td { white-space: normal; vertical-align: top; padding: 12px 16px; }
+.found th { padding: 10px 16px; }
+
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; color: var(--muted); font-size: 0.82rem; }
+tr:last-child td { border-bottom: none; }
+td.n, th.n { text-align: right; white-space: nowrap; }
+.tscroll { overflow-x: auto; }
+
+.band { background: var(--sunk); border-block: 1px solid var(--line); }
+.band > .wrap { padding-block: 44px; display: flex; flex-direction: column; gap: 20px; }
+.band-intro { display: flex; flex-direction: column; gap: 8px; max-width: 72ch; }
+.band-intro p { color: var(--ink-2); }
+.picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.picker button { font: inherit; font-size: 0.95rem; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 14px 6px 12px; display: inline-flex; gap: 8px; align-items: center; }
+.picker button[aria-selected="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 600; }
+.picker .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--flat); }
+.picker .dot.bad { background: var(--s-neg); }
+.dash { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 16px; align-items: start; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 0; }
+.stats { display: flex; flex-direction: column; gap: 14px; font-size: 0.93rem; }
+.stats h3 { display: flex; flex-direction: column; gap: 2px; }
+.stats h3 small { font-family: var(--f-body); font-size: 0.86rem; color: var(--muted); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; font-size: 0.8rem; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--flat-bg); color: var(--flat); white-space: nowrap; align-self: flex-start; }
+.chip.bad { background: var(--bad-bg); color: var(--bad); }
+.chip.good { background: var(--good-bg); color: var(--good); }
+.chip.info { background: var(--info-bg); color: var(--info); }
+.stat { display: flex; flex-direction: column; gap: 5px; border-top: 1px solid var(--line); padding-top: 12px; }
+.stat .k { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+.stat .big { font-family: var(--f-mono); font-size: 1.4rem; }
+.stat .sub { color: var(--ink-2); }
+.decades { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.decades div { background: var(--sunk); border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; }
+.decades span { font-size: 0.75rem; color: var(--muted); }
+.decades b { font-family: var(--f-mono); font-weight: 500; }
+.lcbar { display: flex; height: 14px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--surface); }
+.lcbar span { display: block; height: 100%; }
+.lclegend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.8rem; color: var(--ink-2); }
+.lclegend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+.charts { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.chart-card { display: flex; flex-direction: column; gap: 10px; }
+.chart-card header { display: flex; flex-direction: column; gap: 2px; }
+.chart-card header p { font-size: 0.86rem; color: var(--muted); }
+.canvas-box { position: relative; height: 250px; }
+.canvas-box.short { height: 190px; }
+details.numbers summary { cursor: pointer; font-size: 0.92rem; color: var(--accent); }
+details.numbers td, details.numbers th { white-space: nowrap; }
+.figtabs { display: flex; flex-direction: column; gap: 12px; }
+.tabrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabrow button { font: inherit; font-size: 0.88rem; cursor: pointer; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); }
+.tabrow button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+#figdams button { border-radius: 999px; }
+#figdams button[aria-selected="true"] { background: var(--surface); color: var(--ink); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 600; }
+.figtabs .cap { font-size: 0.9rem; color: var(--ink-2); max-width: 90ch; }
+.board tbody tr { cursor: pointer; }
+.board tbody tr:hover { background: var(--sunk); }
+.board tbody tr[aria-current="true"] { background: var(--info-bg); }
+.board td { white-space: nowrap; }
+
+.report .wrap { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; padding-block: 56px 72px; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 20px); align-self: start; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
+.toc a { color: var(--ink-2); text-decoration: none; padding: 2px 0; }
+.toc a:hover { color: var(--accent); }
+article { display: flex; flex-direction: column; gap: 60px; min-width: 0; }
+article section { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 24px; }
+.prose { display: flex; flex-direction: column; gap: 14px; max-width: 68ch; color: var(--ink-2); }
+.prose ul, .prose ol { margin: 0; padding-left: 1.25em; display: flex; flex-direction: column; gap: 8px; }
+.prose strong { color: var(--ink); font-weight: 600; }
+.formula { font-family: var(--f-mono); font-size: 0.98rem; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; color: var(--ink); align-self: flex-start; max-width: 100%; overflow-x: auto; }
+.mini { max-width: 560px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+.mini td, .mini th { white-space: nowrap; }
+figure { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.zoom { padding: 0; border: 1px solid var(--line); background: #FFFFFF; border-radius: 10px; cursor: zoom-in; overflow: hidden; display: block; width: 100%; }
+.zoom img { display: block; width: 100%; height: auto; }
+figcaption { font-size: 0.9rem; color: var(--muted); max-width: 80ch; }
+figcaption b { color: var(--ink); font-weight: 600; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.steps { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 8px; max-width: 68ch; color: var(--ink-2); }
+.code-table td { white-space: normal; vertical-align: top; }
+.code-table td:first-child { font-family: var(--f-mono); white-space: nowrap; color: var(--ink); }
+pre.tree { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; font-family: var(--f-mono); font-size: 0.85rem; line-height: 1.55; color: var(--ink-2); }
+code { font-family: var(--f-mono); font-size: 0.88em; background: var(--sunk); padding: 1px 5px; border-radius: 4px; }
+.refs { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; font-size: 0.92rem; color: var(--ink-2); max-width: 80ch; }
+footer { border-top: 1px solid var(--line); background: var(--surface); }
+footer .wrap { padding-block: 24px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 0.88rem; color: var(--muted); }
+dialog.lb { border: none; padding: 0; background: transparent; max-width: min(96vw, 1800px); max-height: 94vh; }
+dialog.lb::backdrop { background: rgba(5, 12, 16, 0.82); }
+dialog.lb img { display: block; max-width: 100%; max-height: 88vh; border-radius: 8px; background: #FFFFFF; }
+dialog.lb button { position: absolute; top: 8px; right: 8px; font: inherit; font-size: 0.9rem; padding: 6px 12px; border-radius: 8px; border: none; background: rgba(17, 34, 44, 0.85); color: #FFFFFF; cursor: pointer; }
+@media (max-width: 980px) {
+  .dash { grid-template-columns: 1fr; }
+  .report .wrap { grid-template-columns: 1fr; }
+  .toc { display: none; }
+}
+@media (max-width: 560px) {
+  body { font-size: 16px; }
+  .pair { grid-template-columns: 1fr; }
+  .canvas-box { height: 220px; }
+  .hero .wrap { padding-block: 32px 24px; }
+}
+</style>
+</head>
+<body>
+
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../../index.html#projects"><span class="mark" aria-hidden="true">MD</span>Copperbelt Reservoir Monitor</a>
+    <nav aria-label="Page sections">
+      <a href="../../index.html#projects">Back to portfolio</a>
+      <a href="#dashboard">Dashboard</a>
+      <a href="#physics">Method</a>
+      <a href="#water">Findings</a>
+      <a href="#code">Code</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <h1>Monitoring surface water and vegetation moisture in Copperbelt reservoirs, 1996 to 2025</h1>
+    <div class="abstract">
+      <p>A handful of reservoirs supply the towns of Zambia’s Copperbelt, and the last decade brought some of the driest rainy seasons on record. I wanted to know whether the dams are actually shrinking and whether the bush around them is drying out.</p>
+      <p>I took every usable Landsat image of five dams from 1996 to 2025, measured open water with McFeeters NDWI and leaf water with Gao NDWI, and tested each change against rainfall, sensor differences and chance. One dam stands out. Kafubu, which supplies Ndola, has lost about a quarter of its usual dry-season water since 2016, and rainfall does not explain the loss. The other four held steady, and the vegetation around all five is slightly greener now than in the late 1990s.</p>
+    </div>
+    <p class="byline"><a href="../../index.html">Memory Dube</a>, October 2026. Built with Python (xarray, odc-stac, pymannkendall), Landsat Collection 2, Sentinel-2, ERA5 and ESA WorldCover.</p>
+    <div class="links">
+      <a class="btn primary" href="https://github.com/MemoryDube807/ndwi-copperbelt">Code on GitHub</a>
+      <a class="btn" href="https://github.com/MemoryDube807/ndwi-copperbelt/blob/main/notebook/NDWI_Copperbelt.ipynb">Notebook</a>
+      <a class="btn" href="data/data.json">Data</a>
+    </div>
+    <div class="found">
+      <table>
+        <thead><tr><th>Question</th><th>Short answer</th><th>Evidence</th></tr></thead>
+        <tbody>
+          <tr><td>Are the dams shrinking?</td><td>Only Kafubu</td><td>Dry-season water cover falls 13% per decade (95% interval 4 to 26%, p = 0.03, 26 years). None of the other four changes by more than 5% per decade.</td></tr>
+          <tr><td>Is rainfall behind Kafubu’s loss?</td><td>Not on its own</td><td>Water cover barely follows rainy-season rain (ρ = 0.11), and the decline is still significant once rainfall is removed (p = 0.033).</td></tr>
+          <tr><td>Was there drought?</td><td>Yes, in four seasons</td><td>2018, 2019, 2024 and 2025 fell below -1 on the drought index. 2024 reached -2.7 with about 62% of normal rain, yet the 30-year rainfall trend is not significant (p = 0.21).</td></tr>
+          <tr><td>Is the vegetation drying out?</td><td>No</td><td>Natural vegetation is greener at all five dams, by 0.024 to 0.060 NDVI per decade. Dry years such as 2002 and 2024 show stress, and the plants recover afterwards.</td></tr>
+          <tr><td>Does leaf water warn before leaves yellow?</td><td>Only weakly</td><td>Across 47 drought dam-seasons, NDWI dropped first in 8 and NDVI first in 5.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="dashboard" aria-labelledby="dash-title">
+  <div class="wrap">
+    <div class="band-intro">
+      <h2 id="dash-title">Explore a dam</h2>
+      <p>Choose a dam to see its water, its shoreline vegetation and its rainfall for every year from 1996 to 2025. The shaded columns are the four drought seasons. A gap means the satellite had too few cloud-free images that season, and I left the year blank rather than fill it in.</p>
+    </div>
+    <div class="picker" role="tablist" aria-label="Choose a dam" id="picker"></div>
+    <div class="dash">
+      <div class="card stats" id="stats" aria-live="polite"></div>
+      <div class="charts">
+        <div class="card chart-card">
+          <header><h4>Water cover, as a share of the dam’s usual footprint</h4><p>The end of the dry season (Aug to Oct) gives the cleanest reading. The end of the rains (Mar to May) is when the dam is fullest.</p></header>
+          <div class="canvas-box"><canvas id="cWater" role="img" aria-label="Water cover by year"></canvas></div>
+        </div>
+        <div class="card chart-card">
+          <header><h4>Leaf water (NDWI) and greenness (NDVI) of the shoreline vegetation</h4><p>End of the rains, scored against the dam’s own record. Below zero means drier or less green than usual for that dam.</p></header>
+          <div class="canvas-box"><canvas id="cCanopy" role="img" aria-label="Leaf water and greenness scores by year"></canvas></div>
+        </div>
+        <div class="card chart-card">
+          <header><h4>Rainy-season drought index (SPI-6, December to May)</h4><p>Below -1 is a drought season. Rainfall from ERA5 at the dam.</p></header>
+          <div class="canvas-box short"><canvas id="cRain" role="img" aria-label="Drought index by year"></canvas></div>
+        </div>
+        <details class="card numbers"><summary>Show the yearly numbers for this dam</summary><div class="tscroll" style="margin-top:10px"><table id="numTable"></table></div></details>
+      </div>
+    </div>
+    <div class="card figtabs">
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <h4 id="figs-title">Maps and figures</h4>
+        <p class="muted" style="font-size:0.88rem">Every dam has the same four views. Choose the dam, then the view.</p>
+      </div>
+      <div class="tabrow" role="tablist" aria-label="Dam for the figures" id="figdams"></div>
+      <div class="tabrow" role="tablist" aria-label="Figure type" id="figtabs"></div>
+      <figure><button class="zoom" type="button" id="figBtn"><img id="figImg" alt="" width="1800" height="1100"></button></figure>
+      <p class="cap" id="figCap"></p>
+    </div>
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">
+        <h4>All five dams side by side</h4>
+        <p class="muted" style="font-size:0.88rem">Water trend at the end of the dry season. I only call a change real when p &lt; 0.05 (Mann-Kendall with the Hamed-Rao correction) and it is larger than 5% per decade. Click a row to open that dam.</p>
+      </div>
+      <div class="tscroll"><table class="board" id="board"></table></div>
+    </div>
+  </div>
+</section>
+
+<section class="report">
+  <div class="wrap">
+    <nav class="toc" aria-label="Contents">
+      <a href="#question">The question</a>
+      <a href="#physics">How a satellite sees water</a>
+      <a href="#data">Data</a>
+      <a href="#method">Method</a>
+      <a href="#water">What happened to the water</a>
+      <a href="#dams">Dam by dam</a>
+      <a href="#drought">Was there drought?</a>
+      <a href="#plants">Is the vegetation drying out?</a>
+      <a href="#warning">Early warning</a>
+      <a href="#meaning">What it means</a>
+      <a href="#limits">Limitations</a>
+      <a href="#code">The code</a>
+      <a href="#sources">Sources</a>
+    </nav>
+    <article>
+      <section id="question">
+        <h2>The question</h2>
+        <div class="prose">
+          <p>My aim was to detect and monitor changes in the water held by open water bodies and by vegetation canopies, using nothing more than free satellite spectral bands. I framed it as two hypotheses I could actually test.</p>
+          <p>The first is that the open-water area of five Copperbelt reservoirs declined between 1996 and 2025. The second is that the vegetation around them lost water over the same period, and that in drought years its leaf water drops before its greenness does.</p>
+          <p>The five dams run across the province from Fitula near Chingola to Kafubu near Ndola. Mindolo serves Kitwe, Makoma sits outside Luanshya and Kaluba is near Mufulira. Kafubu matters most to people, because it supplies Ndola’s water.</p>
+        </div>
+        <figure>
+          <button class="zoom" type="button" data-full="assets/fig/02_study_sites.jpg"><img src="assets/fig/02_study_sites.jpg" alt="Sentinel-2 images of the five study dams with the tracked water outline" loading="lazy" width="1800" height="883"></button>
+          <figcaption><b>Figure 1.</b> The five reservoirs on Sentinel-2 imagery from 2024 and 2025. The cyan line is the water body the code tracks at each site.</figcaption>
+        </figure>
+      </section>
+
+      <section id="physics">
+        <h2>How a satellite sees water</h2>
+        <div class="prose">
+          <p>A satellite records how much sunlight bounces back in several colours, including two infrared bands that our eyes can’t see. Water and leaves treat those bands very differently, and both indices are built on that difference.</p>
+          <p>Open water swallows almost all near-infrared (NIR) light but still reflects a little green, which is why lakes look blue-green. The McFeeters index compares the two.</p>
+        </div>
+        <div class="formula">NDWI (water) = (Green - NIR) / (Green + NIR)</div>
+        <div class="mini">
+          <table>
+            <thead><tr><th>Surface</th><th class="n">Green</th><th class="n">NIR</th><th class="n">NDWI</th></tr></thead>
+            <tbody>
+              <tr><td>Water</td><td class="n">0.06</td><td class="n">0.02</td><td class="n">+0.50</td></tr>
+              <tr><td>Bush</td><td class="n">0.08</td><td class="n">0.40</td><td class="n">-0.67</td></tr>
+              <tr><td>Bare soil</td><td class="n">0.12</td><td class="n">0.20</td><td class="n">-0.25</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="prose">
+          <p>Water comes out positive and land negative, so I count the pixels above zero to measure each dam. Dividing by the sum cancels out the overall brightness of the scene, which lets a slightly hazy image be compared with a clear one.</p>
+          <p>Leaves work the other way round. The air spaces between leaf cells scatter near-infrared strongly, while the water inside the cells absorbs short-wave infrared (SWIR). A well-watered leaf has high NIR and low SWIR, and as the plant dries the SWIR reflection rises.</p>
+        </div>
+        <div class="formula">NDWI (leaves) = (NIR - SWIR) / (NIR + SWIR)</div>
+        <div class="prose">
+          <p>A healthy leaf with NIR 0.40 and SWIR 0.15 scores 0.45. A thirsty one with NIR 0.35 and SWIR 0.30 scores 0.08. Leaves usually lose water before they lose chlorophyll and turn yellow, so in theory this index should fall before greenness (NDVI) does. That idea is often used to argue that NDWI gives an early warning before chlorosis, and I treated it as something to test.</p>
+        </div>
+      </section>
+
+      <section id="data">
+        <h2>Data</h2>
+        <div class="tscroll" style="background:var(--surface);border:1px solid var(--line);border-radius:10px">
+          <table>
+            <thead><tr><th>Source</th><th>Years</th><th>Pixel</th><th>Bands (Green, NIR, SWIR)</th><th>Used for</th></tr></thead>
+            <tbody>
+              <tr><td>Landsat 5 TM</td><td>1996 to 2011</td><td>30 m</td><td class="mono">B2, B4, B5</td><td>Main record</td></tr>
+              <tr><td>Landsat 7 ETM+</td><td>1999 to 2023</td><td>30 m</td><td class="mono">B2, B4, B5</td><td>Main record</td></tr>
+              <tr><td>Landsat 8 and 9 OLI</td><td>2013 to 2025</td><td>30 m</td><td class="mono">B3, B5, B6</td><td>Main record</td></tr>
+              <tr><td>Sentinel-2 MSI</td><td>2015 to 2025</td><td>10 to 20 m</td><td class="mono">B3, B8, B11</td><td>Checking lake outlines</td></tr>
+              <tr><td>MODIS</td><td>not used</td><td>250 to 500 m</td><td></td><td>Too coarse for these dams</td></tr>
+              <tr><td>ERA5 rainfall</td><td>1960 to 2025</td><td>about 25 km</td><td>monthly rain</td><td>Drought index</td></tr>
+              <tr><td>ESA WorldCover</td><td>2021</td><td>10 m</td><td>land cover</td><td>Separating bush from farmland</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="prose">
+          <p>Landsat is the only archive with 30 years of 30 m images, so it carries the analysis. Sentinel-2 only serves as a check that Landsat draws the same lake outlines, and the two agree with an overlap of 0.80 to 0.94 depending on the dam. MODIS is popular for vegetation monitoring, but one of its pixels covers about a quarter of most of these dams, so it can’t resolve them. The band numbers also change between Landsat generations, which is why the code selects bands by name.</p>
+          <p>Each year gets two composites. The end of the rains (March to May) is when dams are full and the bush is in leaf. The end of the dry season (August to October) is when storage is lowest and skies are clear, so it gives the more reliable water reading. Within a season I take the median of all cloud-free images, pixel by pixel. If one image still has thin haze, the median ignores it, whereas an average would be pulled down.</p>
+          <p>The record starts in 1996 because that is the first year with Landsat images at every dam, and 30 years is the period the WMO uses to define a region’s climate. Years with fewer than three clear images are left out. Figure 2 shows exactly which ones and why.</p>
+          <p>Two supporting datasets explain the satellite signal. ERA5 is a global weather reanalysis from the European Centre for Medium-Range Weather Forecasts. I turned its monthly rainfall into SPI-6, the standardised precipitation index over December to May, which scores each rainy season against that place’s own history. A score below -1 is a drought, and that happens roughly one year in six. WorldCover is a 10 m land-cover map from ESA, and I used it to keep farmland out of the vegetation analysis, since harvesting and irrigation change leaf water whatever the weather does.</p>
+        </div>
+        <figure>
+          <button class="zoom" type="button" data-full="assets/fig/01_data_availability.jpg"><img src="assets/fig/01_data_availability.jpg" alt="Grid showing which years passed the quality rules at each dam" loading="lazy" width="1800" height="791"></button>
+          <figcaption><b>Figure 2.</b> Which years passed the quality rules, by dam and season. The end-of-rains season is often cloudy, so the vegetation series start in 1998.</figcaption>
+        </figure>
+      </section>
+
+      <section id="method">
+        <h2>Method</h2>
+        <ol class="steps">
+          <li>Search the Planetary Computer catalogue for Landsat scenes over each dam, year and season, and read only the bands needed.</li>
+          <li>Convert to surface reflectance and mask cloud, cloud shadow and snow from each scene’s quality band.</li>
+          <li>Build a median composite per season and year.</li>
+          <li>Measure water inside each dam’s usual footprint, and leaf water of natural vegetation in a 300 m band around the shore.</li>
+          <li>Correct for the difference between satellite generations and drop water readings that break the laws of physics.</li>
+          <li>Test every series for a trend, a step change and a link with rainfall, then export the figures and an Excel workbook.</li>
+        </ol>
+        <div class="prose">
+          <p>A dam’s usual footprint is the connected water body under its location point that was wet in at least 10% of years. Defining it this way stops a neighbouring pond or tailings dam from being counted.</p>
+          <p>Three checks did more for the result than anything else. The newer Landsat 8 and 9 sensors read leaf water about 0.028 higher than Landsat 5 and 7 over the same vegetation. Left alone, the switch to the new satellites in 2013 would look like the whole province suddenly got wetter. I estimated that offset in the years both generations were flying, allowing for the date of each image, and removed it before fitting any trend.</p>
+          <p>The second check comes from physics. Almost no rain falls between June and October, so a dam can’t hold more water at the end of the dry season than it did at the end of the rains. When the images said it did, the rainy-season reading was wrong, usually because of haze or muddy water, and I dropped it. That removed 19 of 104 readings.</p>
+          <p>The third is the statistics. I used the Mann-Kendall trend test with the Hamed-Rao correction, because one wet year tends to follow another and the standard test overstates significance when that happens. The slope is a Sen slope with a 95% interval, and a change only counts if it is significant and larger than 5% per decade. Pixel maps go through a false-discovery-rate correction, since among 25,000 pixels about 5% would look significant by chance alone.</p>
+        </div>
+        <figure>
+          <button class="zoom" type="button" data-full="assets/fig/S1_sensor_harmonisation.jpg"><img src="assets/fig/S1_sensor_harmonisation.jpg" alt="Comparison of old and new Landsat sensors before and after harmonisation" loading="lazy" width="1800" height="1637"></button>
+          <figcaption><b>Figure 3.</b> The same vegetation seen by Landsat 5 and 7 and by Landsat 8 and 9, before and after the offset is removed.</figcaption>
+        </figure>
+      </section>
+
+      <section id="water">
+        <h2>What happened to the water</h2>
+        <div class="prose">
+          <p>Four of the five dams have flat trend lines. Kafubu is the exception, losing 9.5 percentage points of its footprint per decade (p = 0.028 over 26 years), and it is the only dam whose decline is both significant and larger than 5% per decade. The next section goes through each dam in turn.</p>
+        </div>
+        <figure>
+          <button class="zoom" type="button" data-full="assets/fig/03_ndwi_seasonal_trend.jpg"><img src="assets/fig/03_ndwi_seasonal_trend.jpg" alt="NDWI seasonal trend for five dams" loading="lazy" width="1800" height="847"></button>
+          <figcaption><b>Figure 4.</b> The NDWI seasonal trend, coloured from high water or leaf moisture (blue) to low moisture or stress (brown). The top row is water cover in the dry season and the bottom row is leaf water at the end of the rains. A solid line is a significant trend.</figcaption>
+        </figure>
+        <figure>
+          <button class="zoom" type="button" data-full="assets/fig/10_trend_scoreboard.jpg"><img src="assets/fig/10_trend_scoreboard.jpg" alt="Trend scoreboard of all five dams" loading="lazy" width="1800" height="730"></button>
+          <figcaption><b>Figure 5.</b> Every dam on one scale. Only Kafubu falls outside the grey band of ±5% per decade with an interval that excludes zero.</figcaption>
+        </figure>
+        <figure>
+          <button class="zoom" type="button" data-full="assets/fig/06_seasonal_drawdown.jpg"><img src="assets/fig/06_seasonal_drawdown.jpg" alt="Seasonal drawdown at each dam" loading="lazy" width="1800" height="796"></button>
+          <figcaption><b>Figure 6.</b> How far each dam drops between the rains and the dry season. Red crosses mark the rainy-season readings removed by the physics check. Since 2021 Kafubu has lost 13 to 16 points of its footprint every dry season, while the other dams show no drawdown beyond measurement error.</figcaption>
+        </figure>
+      </section>
+
+      <section id="dams">
+        <h2>Dam by dam</h2>
+        <div class="tscroll" style="background:var(--surface);border:1px solid var(--line);border-radius:10px">
+          <table>
+            <thead><tr><th>Dam</th><th>Footprint</th><th>Dry-season cover by decade</th><th>Water trend</th><th>2024 water</th><th>Main land cover</th><th>Reliability</th></tr></thead>
+            <tbody>
+              <tr><td>Kafubu (Ndola)</td><td>198 ha</td><td>76%, 84%, 61%</td><td>-13% per decade</td><td>-2.1 SD</td><td>Cropland 37%, trees 35%</td><td>Low</td></tr>
+              <tr><td>Mindolo (Kitwe)</td><td>167 ha</td><td>98%, 96%, 95%</td><td>-0.9% per decade</td><td>+0.3 SD</td><td>Grassland 40%, trees 28%</td><td>Medium</td></tr>
+              <tr><td>Makoma (Luanshya)</td><td>172 ha</td><td>59%, 53%, 72%</td><td>inconclusive</td><td>+1.7 SD</td><td>Shrubland 40%, grassland 27%</td><td>Low</td></tr>
+              <tr><td>Fitula (Chingola)</td><td>43 ha</td><td>87%, 89%, 91%</td><td>no trend</td><td>no image</td><td>Trees 48%, grassland 22%</td><td>Low</td></tr>
+              <tr><td>Kaluba (Mufulira)</td><td>286 ha</td><td>91%, 93%, 95%</td><td>+1.2% per decade</td><td>+0.7 SD</td><td>Trees 59%</td><td>Medium</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Kafubu Dam, Ndola</h3>
+        <div class="prose">
+          <p>Kafubu held about 175 ha of water in the dry season from 1996 to 2005, and 177 ha from 2006 to 2015. Between 2016 and 2025 the figure dropped to 131 ha. The Pettitt test places the break around 2020, and 2024 was the lowest year in the record at 37% of the usual footprint. Most of the loss is along the shallow edges and the narrow northern arm, and the average strip of exposed shore widened from 26 m to 63 m between the second and third decades.</p>
+          <p>Drought is the obvious suspect, but the numbers point elsewhere. Year to year, Kafubu’s water barely follows rainy-season rain (Spearman ρ = 0.11, p = 0.58). The 2023 rains were well above normal, and the dam still only reached 59%. Once rainfall is taken out, the decline remains significant (p = 0.033), and a second water index, MNDWI, shows the same fall. My working explanation is a local pressure, most likely more water being drawn for Ndola or silt filling the shallow end, with the 2024 drought pushing an already stressed reservoir to its lowest point. The utility’s abstraction and level records would settle which.</p>
+          <p>The land around Kafubu is the most farmed of the five, with 37% cropland and 35% tree cover within 1.5 km. Its natural vegetation is in good shape. Among those pixels, 27% became significantly greener and fewer than 1% browner, and the worst stress year was 2002, when 68% was in drought condition, against 22% in 2025. Reliability is low because the old and new Landsat sensors disagree on the trend direction, so I treat the decline as strong evidence that still needs checking on the ground.</p>
+        </div>
+        <figure>
+          <button class="zoom" type="button" data-full="assets/fig/05_site_kafubu.jpg"><img src="assets/fig/05_site_kafubu.jpg" alt="Kafubu Dam site sheet" loading="lazy" width="1800" height="1166"></button>
+          <figcaption><b>Figure 7.</b> Kafubu’s site sheet, with the satellite view, where water was lost between decades, water cover with decade averages, shoreline leaf water and the drought index.</figcaption>
+        </figure>
+
+        <h3>Mindolo Dam, Kitwe</h3>
+        <div class="prose">
+          <p>Mindolo is the steadiest of the five. Its dry-season cover averaged 98%, 96% and 95% across the three decades. The trend test does pick up a small decline of 0.9 points per decade (p &lt; 0.001), but that is far below the 5% per decade I treat as meaningful, and the exposed shoreline only widened from 5 m to 10 m. In 2024 its water was slightly above normal.</p>
+          <p>The land around it is mostly grassland (40%), with 28% tree cover, 20% shrubland and almost no farming. It shows the strongest greening of the five dams, at 0.060 NDVI per decade, and its leaf water is rising too (p = 0.014). The rainy season of 2024 still left a mark, with 38% of its natural vegetation in drought condition, the highest share at any dam since 2015. Reliability is medium, because Landsat and Sentinel-2 agree only moderately on its year-to-year changes (r = 0.53).</p>
+        </div>
+        <figure>
+          <button class="zoom" type="button" data-full="assets/fig/05_site_mindolo.jpg"><img src="assets/fig/05_site_mindolo.jpg" alt="Mindolo Dam site sheet" loading="lazy" width="1800" height="1166"></button>
+          <figcaption><b>Figure 8.</b> Mindolo’s site sheet.</figcaption>
+        </figure>
+
+        <h3>Makoma Dam, Luanshya</h3>
+        <div class="prose">
+          <p>Makoma is the most changeable. Dry-season cover averaged 59% in the first decade and fell to 53% in the second, with several years in the 30s and 40s between 2014 and 2019. The dam then refilled in 2020 and 2021 and has stayed close to full since, so the third decade averages 72%. It was well above normal through the 2024 drought, at 1.7 standard deviations over its own average.</p>
+          <p>That swing leaves the 30-year trend inconclusive. The estimate is +12% per decade, but the 95% interval runs from -10% to +33% (p = 0.58). A drop and recovery this sharp, unrelated to rainfall, looks more like a change in how the dam was operated than a climate signal, and it would be worth asking its managers. Shrubland (40%) and grassland (27%) cover most of the surrounding land, with 7% cropland. Leaf water is rising clearly (p &lt; 0.001), and natural vegetation is greener by 0.028 NDVI per decade. Four of its 19 end-of-rains readings failed the physics check, and reliability is low because the two Landsat generations disagree on the trend direction.</p>
+        </div>
+        <figure>
+          <button class="zoom" type="button" data-full="assets/fig/05_site_makoma.jpg"><img src="assets/fig/05_site_makoma.jpg" alt="Makoma Dam site sheet" loading="lazy" width="1800" height="1166"></button>
+          <figcaption><b>Figure 9.</b> Makoma’s site sheet.</figcaption>
+        </figure>
+
+        <h3>Fitula Dam, Chingola</h3>
+        <div class="prose">
+          <p>Fitula is the smallest dam, with a usual footprint of only 43 ha, so each 30 m pixel is a larger share of the lake and the readings are noisier. Dry-season cover held at 87%, 89% and 91% by decade with no trend (p = 0.24). The end-of-rains series is mostly unusable, because 9 of its 12 readings failed the physics check, which usually points to muddy or weed-covered water. No image of Fitula passed the quality rules in either season of 2024, so its drought-year picture has a gap.</p>
+          <p>Fitula sits in woodland, with 48% tree cover, 22% grassland and 8% cropland. Natural vegetation is greener by 0.025 NDVI per decade, while the small area of cropland is slightly browner. The worst stress year was 2005, with 66% of the vegetation in drought condition. Reliability is low, mainly because Landsat and Sentinel-2 don’t agree on its year-to-year changes, which is what I would expect for a lake this small.</p>
+        </div>
+        <figure>
+          <button class="zoom" type="button" data-full="assets/fig/05_site_fitula.jpg"><img src="assets/fig/05_site_fitula.jpg" alt="Fitula Dam site sheet" loading="lazy" width="1800" height="1166"></button>
+          <figcaption><b>Figure 10.</b> Fitula’s site sheet.</figcaption>
+        </figure>
+
+        <h3>Kaluba Dam, Mufulira</h3>
+        <div class="prose">
+          <p>Kaluba is the largest dam in the study at 286 ha, and one of the most stable. Dry-season cover rose slightly from 91% to 93% to 95%. That works out at 1.2% per decade, which is statistically detectable (p = 0.047) but too small to call an increase, and the exposed shoreline narrowed from 19 m to 11 m. It was above its normal level in all four drought years, including 2024 (+0.7 SD).</p>
+          <p>This is the most wooded site, with 59% tree cover and only 2% cropland. Natural vegetation greened by 0.024 NDVI per decade. The worst stress year was 2005, when 82% of the vegetation was in drought condition, compared with 13% in 2025. Reliability is medium, because Landsat and Sentinel-2 agree only moderately on its year-to-year changes (r = 0.58).</p>
+        </div>
+        <figure>
+          <button class="zoom" type="button" data-full="assets/fig/05_site_kaluba.jpg"><img src="assets/fig/05_site_kaluba.jpg" alt="Kaluba Dam site sheet" loading="lazy" width="1800" height="1166"></button>
+          <figcaption><b>Figure 11.</b> Kaluba’s site sheet. The stress maps, land-cover sheets and greening maps for every dam are in the dashboard above.</figcaption>
+        </figure>
+      </section>
+
+      <section id="drought">
+        <h2>Was there drought?</h2>
+        <div class="prose">
+          <p>Four rainy seasons since 2018 fell below -1 on the drought index: 2018 (-1.2), 2019 (-1.7), 2024 (-2.7) and 2025 (-1.7). 2024 was the driest in the record. The region received about 62% of its 1991 to 2020 average, between 55% and 69% depending on the dam, and the government declared a national disaster on 29 February 2024.</p>
+          <p>Over the full 30 years, though, wet-season rainfall has no significant trend (about -33 mm per decade, p = 0.21). The Copperbelt had a run of bad seasons rather than a steady drying. The dams also responded very differently. Mindolo, Makoma and Kaluba were at or above their normal level in 2024, while Kafubu was 2.1 standard deviations below its own average that year and 1.6 below in 2025.</p>
+        </div>
+        <figure style="max-width:640px">
+          <button class="zoom" type="button" data-full="assets/fig/S7_drought_years.jpg"><img src="assets/fig/S7_drought_years.jpg" alt="Each dam's response in the four drought years" loading="lazy" width="1800" height="2252"></button>
+          <figcaption><b>Figure 12.</b> Each dam in the four drought years, scored against its own record. Brown is less water or drier vegetation than normal.</figcaption>
+        </figure>
+      </section>
+
+      <section id="plants">
+        <h2>Is the vegetation drying out?</h2>
+        <div class="prose">
+          <p>What grows around a dam shapes how its vegetation signal should be read. Kaluba (59% tree cover) and Fitula (48%) sit in woodland. Mindolo is mostly grassland at 40%, and Makoma mostly shrubland at 40%. Kafubu is the farmed one, with 37% cropland within 1.5 km of the water and 35% tree cover.</p>
+          <p>Natural vegetation is getting greener at all five dams, from 0.024 NDVI per decade at Kaluba to 0.060 at Mindolo, and leaf water is flat or rising. Around Kafubu, 27% of natural-vegetation pixels became significantly greener after the false-discovery correction and fewer than 1% became browner. Cropland behaves differently from dam to dam. It is greener at Mindolo and browner at Fitula and Kaluba, which suggests farm management rather than climate.</p>
+          <p>Stress turns up in particular years. The worst were 2002 and 2005, when 66% to 87% of the natural vegetation around the dams was in drought condition. Since 2015 no dam has gone above 38%, and in 2024 the share ranged from 17% to 38%. Part of the reason 2024 looks mild is timing. Its dry spell came in January and February, and by the March to May images much of the canopy had recovered.</p>
+        </div>
+        <div class="pair">
+          <figure>
+            <button class="zoom" type="button" data-full="assets/fig/S5_vegetation_summary.jpg"><img src="assets/fig/S5_vegetation_summary.jpg" alt="Land cover around each dam and greenness change" loading="lazy" width="1800" height="561"></button>
+            <figcaption><b>Figure 13.</b> Land cover within 1.5 km of each dam, and the greenness trend for natural vegetation and cropland.</figcaption>
+          </figure>
+          <figure>
+            <button class="zoom" type="button" data-full="assets/fig/S6_drought_condition_timeline.jpg"><img src="assets/fig/S6_drought_condition_timeline.jpg" alt="Share of vegetation in drought condition by dam and year" loading="lazy" width="1800" height="859"></button>
+            <figcaption><b>Figure 14.</b> Share of natural vegetation in drought condition, by dam and year.</figcaption>
+          </figure>
+        </div>
+        <div class="prose"><p>The dashboard above has the greening map, the land-cover sheet and the stress map for each of the five dams. Pick a dam and switch between the tabs.</p></div>
+      </section>
+
+      <section id="warning">
+        <h2>Early warning</h2>
+        <div class="prose">
+          <p>To test whether leaf water warns before leaves yellow, I looked month by month at the drought years and recorded which index first fell below -0.5 standard deviations. Out of 47 dam-seasons, NDWI went first in 8 and NDVI went first in 5. In 14 they dropped in the same month, and 20 showed no stress at all. With yearly composites the lead vanishes completely.</p>
+          <p>There is a hint of an early signal, but it is too weak to rely on. Monthly Landsat composites are simply too coarse in time for this question, and Sentinel-2, which revisits every five days, would be the right data to test it properly.</p>
+        </div>
+        <figure style="max-width:640px">
+          <button class="zoom" type="button" data-full="assets/fig/09_early_warning_monthly.jpg"><img src="assets/fig/09_early_warning_monthly.jpg" alt="Month by month leaf water and greenness in drought years" loading="lazy" width="1700" height="1926"></button>
+          <figcaption><b>Figure 15.</b> Leaf water (blue) and greenness (green) month by month in the drought years, for each dam and season.</figcaption>
+        </figure>
+      </section>
+
+      <section id="meaning">
+        <h2>What it means</h2>
+        <div class="prose">
+          <p>For Ndola, the result that matters is Kafubu. The reservoir has lost about a quarter of its dry-season water and rainfall doesn’t account for it. The utility’s abstraction and water-level records would show whether rising demand, silt or both are responsible. A seasonal satellite check costs nothing to run, and an alert set at around 60% dry-season cover would have flagged the problem several years before 2024.</p>
+          <p>The other four reservoirs came through all four drought seasons without a lasting loss, so this data gives no reason for a province-wide response. Attention and money should go to Kafubu first.</p>
+          <p>Four failed rainy seasons in eight years is reason enough to keep drought plans ready to switch on. What the data does not show is a region that is permanently drying, so the planning problem is recurring shocks.</p>
+          <p>Around Kafubu, farms reach close to the water. A strip of natural vegetation along the shore is a cheap way to reduce the soil washing into the reservoir, and it would be worth measuring how much of the loss is silt.</p>
+          <p>Anyone building a drought alert from this kind of data should pair leaf-water NDWI with a rainfall index instead of relying on NDWI alone.</p>
+        </div>
+      </section>
+
+      <section id="limits">
+        <h2>Limitations</h2>
+        <div class="prose">
+          <ul>
+            <li>A 30 m pixel blurs shorelines. Moving the water threshold from -0.1 to +0.1 changes the areas by 8% to 146%, so I treat hectares as approximate and rely on the direction of change.</li>
+            <li>Three of the five dams, Kafubu included, are rated low reliability. At those sites the old and new Landsat generations disagree on the trend direction, or Landsat and Sentinel-2 disagree from year to year.</li>
+            <li>End-of-rains images are often cloudy or show muddy water, which is why 19 of 104 readings failed the physics check.</li>
+            <li>The land-cover map is from 2021 and is applied to all 30 years, so earlier clearing for farms is not captured.</li>
+            <li>There is no ground truth yet. The results should be checked against reservoir level records.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="code">
+        <h2>The code</h2>
+        <div class="prose">
+          <p>The whole analysis runs from one Jupyter notebook. Every setting sits in a single configuration cell, and downloads are cached by dam, so a rerun takes minutes rather than hours. To monitor a different reservoir you add its name and coordinates to <code>SITES</code> and run the notebook again.</p>
+        </div>
+        <div class="tscroll" style="background:var(--surface);border:1px solid var(--line);border-radius:10px">
+          <table class="code-table">
+            <thead><tr><th>Cell</th><th>What it does</th><th>Output</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Installs the packages.</td><td></td></tr>
+              <tr><td>2</td><td>Holds every setting: dams, study period, seasons, quality thresholds and decade windows.</td><td></td></tr>
+              <tr><td>3</td><td>Connects to the Microsoft Planetary Computer catalogue.</td><td></td></tr>
+              <tr><td>4</td><td>Defines the statistics: NDWI, SPI, Mann-Kendall with Hamed-Rao, Sen slope, Pettitt and false-discovery correction.</td><td></td></tr>
+              <tr><td>4b</td><td>Sets one chart style for all figures and handles saving.</td><td></td></tr>
+              <tr><td>5</td><td>Runs the pipeline: search, read bands, convert to reflectance, mask clouds, compute indices, build median composites.</td><td></td></tr>
+              <tr><td>7</td><td>Checks each dam on a recent Sentinel-2 image so the code is looking at the right lake.</td><td>Figure 1</td></tr>
+              <tr><td>8</td><td>Runs the pipeline for all five dams and caches the results.</td><td></td></tr>
+              <tr><td>9</td><td>Analyses each dam: footprint, yearly water and shoreline vegetation, sensor correction, physics check, trends and reliability.</td><td></td></tr>
+              <tr><td>9a</td><td>Records which years have usable data.</td><td>Figure 2</td></tr>
+              <tr><td>10</td><td>Downloads ERA5 rainfall, computes SPI-6 and tests whether water follows rain.</td><td></td></tr>
+              <tr><td>9b</td><td>Compares satellite generations and Landsat with Sentinel-2, and measures seasonal drawdown.</td><td>Figures 3 and 6</td></tr>
+              <tr><td>9c</td><td>Maps land cover and greening pixel by pixel, and cross-checks water with MNDWI.</td><td>Figure 13, web maps</td></tr>
+              <tr><td>9d</td><td>Scores each pixel against its own record to map drought condition.</td><td>Figure 14, stress maps</td></tr>
+              <tr><td>11</td><td>Draws a one-page sheet and a land-cover sheet for each dam.</td><td>Figures 7 to 11</td></tr>
+              <tr><td>11b</td><td>Runs the early-warning and threshold tests, summarises drought years and exports GeoTIFFs.</td><td>Figure 12</td></tr>
+              <tr><td>11c</td><td>Draws the NDWI seasonal trend and the month-by-month early-warning test.</td><td>Figures 4 and 15</td></tr>
+              <tr><td>12</td><td>Combines all dams and writes the conclusion directly from the statistics.</td><td>Figure 5</td></tr>
+              <tr><td>13</td><td>Exports every table to one Excel workbook with the settings used.</td><td></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="prose">
+          <p>To run it yourself, clone the repository, install the requirements and open the notebook.</p>
+        </div>
+        <pre class="tree">git clone https://github.com/MemoryDube807/ndwi-copperbelt.git
+cd ndwi-copperbelt
+pip install -r requirements.txt
+jupyter lab notebook/NDWI_Copperbelt.ipynb</pre>
+      </section>
+
+      <section id="sources">
+        <h2>Sources</h2>
+        <ol class="refs">
+          <li>McFeeters, S. K. (1996). The use of the Normalized Difference Water Index (NDWI) in the delineation of open water features. <i>International Journal of Remote Sensing</i>, 17(7), 1425-1432.</li>
+          <li>Gao, B. C. (1996). NDWI, a normalized difference water index for remote sensing of vegetation liquid water from space. <i>Remote Sensing of Environment</i>, 58(3), 257-266.</li>
+          <li>Hamed, K. H. and Rao, A. R. (1998). A modified Mann-Kendall trend test for autocorrelated data. <i>Journal of Hydrology</i>, 204, 182-196.</li>
+          <li>Sen, P. K. (1968). Estimates of the regression coefficient based on Kendall’s tau. <i>Journal of the American Statistical Association</i>, 63, 1379-1389.</li>
+          <li>Pettitt, A. N. (1979). A non-parametric approach to the change-point problem. <i>Applied Statistics</i>, 28, 126-135.</li>
+          <li>Benjamini, Y. and Hochberg, Y. (1995). Controlling the false discovery rate. <i>Journal of the Royal Statistical Society B</i>, 57, 289-300.</li>
+          <li>McKee, T. B., Doesken, N. J. and Kleist, J. (1993). The relationship of drought frequency and duration to time scales. <i>8th Conference on Applied Climatology</i>.</li>
+          <li>Hersbach, H. et al. (2020). The ERA5 global reanalysis. <i>Quarterly Journal of the Royal Meteorological Society</i>, 146, 1999-2049.</li>
+          <li>Zanaga, D. et al. (2022). ESA WorldCover 10 m 2021 v200.</li>
+          <li>U.S. Geological Survey, Landsat Collection 2 Level-2 Science Products, via the Microsoft Planetary Computer.</li>
+          <li><a href="https://en.wikipedia.org/wiki/2024_Zambian_drought">2024 Zambian drought</a>, Wikipedia, and <a href="https://www.aljazeera.com/news/2024/2/29/zambia-declares-national-disaster-after-drought-devastates-agriculture">Zambia declares national disaster after drought devastates agriculture</a>, Al Jazeera, 29 February 2024.</li>
+        </ol>
+      </section>
+    </article>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span><a href="../../index.html">Memory Dube</a>, MSc Computer Science candidate and climate data analyst</span>
+    <span>Imagery from USGS Landsat and ESA Sentinel-2. Rainfall from ECMWF ERA5.</span>
+  </div>
+</footer>
+
+<dialog class="lb" id="lb" aria-label="Enlarged figure">
+  <img id="lbImg" alt="">
+  <button type="button" id="lbClose">Close</button>
+</dialog>
+
+<script type="application/json" id="ndwi-data">{"years":[1996,1997,1998,1999,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],"sites":[{"id":"mindolo","name":"Mindolo Dam","town":"Kitwe","lat":-12.7944,"lon":28.1401,"footprint_ha":167.0,"reliability":"Medium","why":"Landsat and Sentinel-2 disagree on year-to-year change (r=0.53)","water":{"trend":"no trend","p":0.0001,"pts_dec":-0.9,"pct_dec":-0.9,"lo":-1.6,"hi":-0.5,"span":"1996-2025, n=25","rain_rho":0.03,"rain_p":0.894,"resid_trend":"decreasing","resid_p":0.0022},"canopy":{"slope_dec":0.0324,"p":0.0138,"lo":0.016,"hi":0.0528},"series":[{"y":1996,"dry_pct":98.4,"dry_ha":163.9,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.41,"rain_pct":96.0},{"y":1997,"dry_pct":99.2,"dry_ha":165.3,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.38,"rain_pct":104.0},{"y":1998,"dry_pct":97.0,"dry_ha":161.6,"mam_pct":98.1,"ndwi":0.05,"ndvi":0.465,"spi6":0.08,"rain_pct":107.0},{"y":1999,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.57,"rain_pct":107.0},{"y":2000,"dry_pct":97.0,"dry_ha":161.6,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.62,"rain_pct":91.0},{"y":2001,"dry_pct":98.8,"dry_ha":164.5,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":1.1,"rain_pct":130.0},{"y":2002,"dry_pct":96.6,"dry_ha":160.9,"mam_pct":96.2,"ndwi":0.012,"ndvi":0.471,"spi6":-0.45,"rain_pct":95.0},{"y":2003,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.06,"rain_pct":99.0},{"y":2004,"dry_pct":97.2,"dry_ha":161.9,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.05,"rain_pct":100.0},{"y":2005,"dry_pct":97.7,"dry_ha":162.8,"mam_pct":86.1,"ndwi":0.019,"ndvi":0.487,"spi6":-1.17,"rain_pct":91.0},{"y":2006,"dry_pct":96.3,"dry_ha":160.4,"mam_pct":94.6,"ndwi":0.067,"ndvi":0.551,"spi6":0.02,"rain_pct":100.0},{"y":2007,"dry_pct":97.1,"dry_ha":161.8,"mam_pct":null,"ndwi":0.059,"ndvi":0.524,"spi6":-0.24,"rain_pct":102.0},{"y":2008,"dry_pct":97.4,"dry_ha":162.3,"mam_pct":93.0,"ndwi":0.024,"ndvi":0.497,"spi6":-1.19,"rain_pct":83.0},{"y":2009,"dry_pct":null,"dry_ha":null,"mam_pct":85.9,"ndwi":0.079,"ndvi":0.56,"spi6":0.08,"rain_pct":112.0},{"y":2010,"dry_pct":null,"dry_ha":null,"mam_pct":67.6,"ndwi":0.141,"ndvi":0.562,"spi6":1.15,"rain_pct":128.0},{"y":2011,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.59,"rain_pct":111.0},{"y":2012,"dry_pct":95.8,"dry_ha":159.7,"mam_pct":90.3,"ndwi":0.084,"ndvi":0.57,"spi6":-0.4,"rain_pct":102.0},{"y":2013,"dry_pct":96.9,"dry_ha":161.5,"mam_pct":94.4,"ndwi":0.046,"ndvi":0.544,"spi6":-0.06,"rain_pct":104.0},{"y":2014,"dry_pct":94.5,"dry_ha":157.5,"mam_pct":91.5,"ndwi":0.101,"ndvi":0.55,"spi6":0.24,"rain_pct":110.0},{"y":2015,"dry_pct":94.4,"dry_ha":157.3,"mam_pct":89.2,"ndwi":0.077,"ndvi":0.568,"spi6":0.38,"rain_pct":103.0},{"y":2016,"dry_pct":94.4,"dry_ha":157.2,"mam_pct":89.0,"ndwi":0.057,"ndvi":0.572,"spi6":0.92,"rain_pct":117.0},{"y":2017,"dry_pct":93.9,"dry_ha":156.5,"mam_pct":89.6,"ndwi":0.133,"ndvi":0.61,"spi6":-0.33,"rain_pct":96.0},{"y":2018,"dry_pct":95.2,"dry_ha":158.6,"mam_pct":89.4,"ndwi":0.085,"ndvi":0.591,"spi6":-1.35,"rain_pct":89.0},{"y":2019,"dry_pct":96.5,"dry_ha":160.8,"mam_pct":83.5,"ndwi":0.069,"ndvi":0.566,"spi6":-1.81,"rain_pct":74.0},{"y":2020,"dry_pct":94.2,"dry_ha":156.9,"mam_pct":89.2,"ndwi":0.129,"ndvi":0.599,"spi6":-1.43,"rain_pct":81.0},{"y":2021,"dry_pct":96.4,"dry_ha":160.7,"mam_pct":92.6,"ndwi":0.071,"ndvi":0.569,"spi6":0.75,"rain_pct":111.0},{"y":2022,"dry_pct":95.8,"dry_ha":159.7,"mam_pct":93.2,"ndwi":0.109,"ndvi":0.592,"spi6":-0.04,"rain_pct":98.0},{"y":2023,"dry_pct":96.3,"dry_ha":160.4,"mam_pct":92.6,"ndwi":0.119,"ndvi":0.592,"spi6":0.52,"rain_pct":113.0},{"y":2024,"dry_pct":96.8,"dry_ha":161.2,"mam_pct":94.3,"ndwi":0.079,"ndvi":0.578,"spi6":-2.88,"rain_pct":61.0},{"y":2025,"dry_pct":95.1,"dry_ha":158.4,"mam_pct":93.6,"ndwi":0.156,"ndvi":0.634,"spi6":-1.94,"rain_pct":77.0}]},{"id":"makoma","name":"Makoma Dam","town":"Luanshya","lat":-13.1528,"lon":28.371,"footprint_ha":172.0,"reliability":"Low","why":"trend direction differs between Landsat generations (sensor artefact risk)","water":{"trend":"no trend","p":0.5776,"pts_dec":7.61,"pct_dec":12.2,"lo":-10.5,"hi":32.8,"span":"1996-2025, n=25","rain_rho":0.06,"rain_p":0.759,"resid_trend":"no trend","resid_p":0.457},"canopy":{"slope_dec":0.0268,"p":0.0004,"lo":0.0121,"hi":0.0526},"series":[{"y":1996,"dry_pct":75.4,"dry_ha":129.6,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.71,"rain_pct":91.0},{"y":1997,"dry_pct":61.2,"dry_ha":105.2,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.57,"rain_pct":109.0},{"y":1998,"dry_pct":49.5,"dry_ha":85.1,"mam_pct":59.2,"ndwi":0.078,"ndvi":0.555,"spi6":0.02,"rain_pct":106.0},{"y":1999,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.16,"rain_pct":100.0},{"y":2000,"dry_pct":37.9,"dry_ha":65.2,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.37,"rain_pct":93.0},{"y":2001,"dry_pct":80.0,"dry_ha":137.6,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":1.42,"rain_pct":139.0},{"y":2002,"dry_pct":null,"dry_ha":null,"mam_pct":56.7,"ndwi":-0.035,"ndvi":0.497,"spi6":-0.68,"rain_pct":91.0},{"y":2003,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.36,"rain_pct":103.0},{"y":2004,"dry_pct":55.4,"dry_ha":95.3,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.18,"rain_pct":99.0},{"y":2005,"dry_pct":54.9,"dry_ha":94.4,"mam_pct":50.7,"ndwi":0.0,"ndvi":0.523,"spi6":-1.04,"rain_pct":88.0},{"y":2006,"dry_pct":60.0,"dry_ha":103.2,"mam_pct":45.5,"ndwi":0.061,"ndvi":0.595,"spi6":-0.0,"rain_pct":101.0},{"y":2007,"dry_pct":63.6,"dry_ha":109.4,"mam_pct":null,"ndwi":0.078,"ndvi":0.531,"spi6":-0.08,"rain_pct":104.0},{"y":2008,"dry_pct":54.5,"dry_ha":93.7,"mam_pct":55.2,"ndwi":0.019,"ndvi":0.535,"spi6":-0.9,"rain_pct":85.0},{"y":2009,"dry_pct":null,"dry_ha":null,"mam_pct":30.5,"ndwi":0.086,"ndvi":0.612,"spi6":0.6,"rain_pct":119.0},{"y":2010,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.52,"rain_pct":115.0},{"y":2011,"dry_pct":42.3,"dry_ha":72.8,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.21,"rain_pct":106.0},{"y":2012,"dry_pct":68.4,"dry_ha":117.7,"mam_pct":null,"ndwi":0.086,"ndvi":0.625,"spi6":-0.68,"rain_pct":97.0},{"y":2013,"dry_pct":51.3,"dry_ha":88.2,"mam_pct":63.2,"ndwi":0.072,"ndvi":0.604,"spi6":0.64,"rain_pct":115.0},{"y":2014,"dry_pct":48.1,"dry_ha":82.7,"mam_pct":50.9,"ndwi":0.064,"ndvi":0.582,"spi6":1.1,"rain_pct":125.0},{"y":2015,"dry_pct":39.5,"dry_ha":68.0,"mam_pct":43.5,"ndwi":0.088,"ndvi":0.609,"spi6":0.36,"rain_pct":102.0},{"y":2016,"dry_pct":31.3,"dry_ha":53.8,"mam_pct":31.0,"ndwi":0.101,"ndvi":0.62,"spi6":0.29,"rain_pct":109.0},{"y":2017,"dry_pct":42.9,"dry_ha":73.8,"mam_pct":40.3,"ndwi":0.098,"ndvi":0.631,"spi6":-0.07,"rain_pct":99.0},{"y":2018,"dry_pct":36.4,"dry_ha":62.6,"mam_pct":38.9,"ndwi":0.099,"ndvi":0.631,"spi6":-0.93,"rain_pct":93.0},{"y":2019,"dry_pct":46.8,"dry_ha":80.5,"mam_pct":null,"ndwi":0.091,"ndvi":0.62,"spi6":-1.48,"rain_pct":77.0},{"y":2020,"dry_pct":70.5,"dry_ha":121.3,"mam_pct":null,"ndwi":0.095,"ndvi":0.598,"spi6":-0.67,"rain_pct":94.0},{"y":2021,"dry_pct":95.5,"dry_ha":164.2,"mam_pct":84.6,"ndwi":0.073,"ndvi":0.573,"spi6":1.04,"rain_pct":121.0},{"y":2022,"dry_pct":99.7,"dry_ha":171.5,"mam_pct":94.8,"ndwi":0.107,"ndvi":0.599,"spi6":0.32,"rain_pct":104.0},{"y":2023,"dry_pct":100.0,"dry_ha":172.0,"mam_pct":96.3,"ndwi":0.127,"ndvi":0.614,"spi6":1.69,"rain_pct":137.0},{"y":2024,"dry_pct":98.4,"dry_ha":169.2,"mam_pct":97.0,"ndwi":0.076,"ndvi":0.576,"spi6":-1.86,"rain_pct":69.0},{"y":2025,"dry_pct":95.2,"dry_ha":163.7,"mam_pct":94.9,"ndwi":0.114,"ndvi":0.621,"spi6":-1.43,"rain_pct":79.0}]},{"id":"kafubu","name":"Kafubu Dam","town":"Ndola","lat":-13.0821,"lon":28.5882,"footprint_ha":198.0,"reliability":"Low","why":"trend direction differs between Landsat generations (sensor artefact risk)","water":{"trend":"decreasing","p":0.0275,"pts_dec":-9.47,"pct_dec":-13.1,"lo":-26.0,"hi":-4.2,"span":"1996-2025, n=26","rain_rho":0.11,"rain_p":0.584,"resid_trend":"decreasing","resid_p":0.0329},"canopy":{"slope_dec":0.0194,"p":0.2244,"lo":-0.0061,"hi":0.0458},"series":[{"y":1996,"dry_pct":91.2,"dry_ha":181.0,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.52,"rain_pct":95.0},{"y":1997,"dry_pct":92.0,"dry_ha":182.6,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.57,"rain_pct":108.0},{"y":1998,"dry_pct":56.1,"dry_ha":111.4,"mam_pct":99.0,"ndwi":0.221,"ndvi":0.588,"spi6":0.17,"rain_pct":109.0},{"y":1999,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.05,"rain_pct":100.0},{"y":2000,"dry_pct":65.5,"dry_ha":130.1,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.41,"rain_pct":93.0},{"y":2001,"dry_pct":56.9,"dry_ha":113.0,"mam_pct":57.7,"ndwi":0.27,"ndvi":0.71,"spi6":1.35,"rain_pct":136.0},{"y":2002,"dry_pct":94.5,"dry_ha":187.6,"mam_pct":88.5,"ndwi":0.147,"ndvi":0.62,"spi6":-0.34,"rain_pct":98.0},{"y":2003,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.12,"rain_pct":99.0},{"y":2004,"dry_pct":89.9,"dry_ha":178.4,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.43,"rain_pct":96.0},{"y":2005,"dry_pct":61.1,"dry_ha":121.3,"mam_pct":89.1,"ndwi":0.208,"ndvi":0.646,"spi6":-1.16,"rain_pct":89.0},{"y":2006,"dry_pct":76.3,"dry_ha":151.5,"mam_pct":null,"ndwi":0.26,"ndvi":0.719,"spi6":-0.11,"rain_pct":100.0},{"y":2007,"dry_pct":75.9,"dry_ha":150.6,"mam_pct":null,"ndwi":0.174,"ndvi":0.592,"spi6":-0.09,"rain_pct":104.0},{"y":2008,"dry_pct":89.2,"dry_ha":177.0,"mam_pct":84.0,"ndwi":0.185,"ndvi":0.635,"spi6":-0.9,"rain_pct":86.0},{"y":2009,"dry_pct":null,"dry_ha":null,"mam_pct":80.1,"ndwi":0.225,"ndvi":0.672,"spi6":0.06,"rain_pct":110.0},{"y":2010,"dry_pct":null,"dry_ha":null,"mam_pct":74.6,"ndwi":0.28,"ndvi":0.657,"spi6":0.76,"rain_pct":121.0},{"y":2011,"dry_pct":88.0,"dry_ha":174.6,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.46,"rain_pct":109.0},{"y":2012,"dry_pct":87.5,"dry_ha":173.6,"mam_pct":84.0,"ndwi":0.275,"ndvi":0.731,"spi6":-0.62,"rain_pct":100.0},{"y":2013,"dry_pct":90.4,"dry_ha":179.4,"mam_pct":92.7,"ndwi":0.257,"ndvi":0.706,"spi6":0.63,"rain_pct":114.0},{"y":2014,"dry_pct":84.4,"dry_ha":167.4,"mam_pct":82.9,"ndwi":0.211,"ndvi":0.67,"spi6":0.63,"rain_pct":112.0},{"y":2015,"dry_pct":77.9,"dry_ha":154.6,"mam_pct":89.2,"ndwi":0.269,"ndvi":0.71,"spi6":0.38,"rain_pct":102.0},{"y":2016,"dry_pct":73.3,"dry_ha":145.4,"mam_pct":65.9,"ndwi":0.265,"ndvi":0.732,"spi6":0.12,"rain_pct":104.0},{"y":2017,"dry_pct":80.0,"dry_ha":158.8,"mam_pct":81.1,"ndwi":0.256,"ndvi":0.715,"spi6":-0.23,"rain_pct":97.0},{"y":2018,"dry_pct":85.6,"dry_ha":169.9,"mam_pct":77.7,"ndwi":0.267,"ndvi":0.723,"spi6":-0.94,"rain_pct":94.0},{"y":2019,"dry_pct":76.6,"dry_ha":152.0,"mam_pct":73.6,"ndwi":0.248,"ndvi":0.711,"spi6":-1.4,"rain_pct":79.0},{"y":2020,"dry_pct":59.2,"dry_ha":117.5,"mam_pct":71.8,"ndwi":0.249,"ndvi":0.685,"spi6":-0.89,"rain_pct":89.0},{"y":2021,"dry_pct":46.0,"dry_ha":91.3,"mam_pct":62.6,"ndwi":0.24,"ndvi":0.702,"spi6":0.51,"rain_pct":111.0},{"y":2022,"dry_pct":44.9,"dry_ha":89.2,"mam_pct":60.4,"ndwi":0.28,"ndvi":0.726,"spi6":-0.39,"rain_pct":92.0},{"y":2023,"dry_pct":58.8,"dry_ha":116.6,"mam_pct":71.9,"ndwi":0.317,"ndvi":0.741,"spi6":1.26,"rain_pct":128.0},{"y":2024,"dry_pct":36.7,"dry_ha":72.8,"mam_pct":51.9,"ndwi":0.207,"ndvi":0.677,"spi6":-2.42,"rain_pct":67.0},{"y":2025,"dry_pct":45.4,"dry_ha":90.2,"mam_pct":58.3,"ndwi":0.256,"ndvi":0.722,"spi6":-1.7,"rain_pct":75.0}]},{"id":"fitula","name":"Fitula Dam","town":"Chingola","lat":-12.665,"lon":27.8602,"footprint_ha":43.0,"reliability":"Low","why":"Landsat and Sentinel-2 disagree on year-to-year change (r=-0.00)","water":{"trend":"no trend","p":0.2394,"pts_dec":-0.49,"pct_dec":-0.5,"lo":-2.4,"hi":3.8,"span":"1997-2025, n=20","rain_rho":0.1,"rain_p":0.674,"resid_trend":"no trend","resid_p":0.1218},"canopy":{"slope_dec":0.0112,"p":0.1628,"lo":-0.003,"hi":0.029},"series":[{"y":1996,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.41,"rain_pct":96.0},{"y":1997,"dry_pct":66.3,"dry_ha":28.4,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.38,"rain_pct":103.0},{"y":1998,"dry_pct":92.4,"dry_ha":39.5,"mam_pct":null,"ndwi":0.12,"ndvi":0.592,"spi6":0.22,"rain_pct":110.0},{"y":1999,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.69,"rain_pct":107.0},{"y":2000,"dry_pct":94.9,"dry_ha":40.6,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.88,"rain_pct":86.0},{"y":2001,"dry_pct":94.7,"dry_ha":40.5,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":1.15,"rain_pct":134.0},{"y":2002,"dry_pct":84.8,"dry_ha":36.3,"mam_pct":80.4,"ndwi":0.101,"ndvi":0.609,"spi6":-0.66,"rain_pct":93.0},{"y":2003,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.51,"rain_pct":108.0},{"y":2004,"dry_pct":82.9,"dry_ha":35.5,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.51,"rain_pct":94.0},{"y":2005,"dry_pct":93.1,"dry_ha":39.8,"mam_pct":null,"ndwi":0.077,"ndvi":0.583,"spi6":-0.71,"rain_pct":96.0},{"y":2006,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.02,"rain_pct":99.0},{"y":2007,"dry_pct":92.4,"dry_ha":39.5,"mam_pct":null,"ndwi":0.109,"ndvi":0.58,"spi6":-0.32,"rain_pct":99.0},{"y":2008,"dry_pct":95.8,"dry_ha":41.0,"mam_pct":null,"ndwi":0.11,"ndvi":0.584,"spi6":-0.62,"rain_pct":92.0},{"y":2009,"dry_pct":null,"dry_ha":null,"mam_pct":14.9,"ndwi":0.154,"ndvi":0.667,"spi6":0.37,"rain_pct":117.0},{"y":2010,"dry_pct":null,"dry_ha":null,"mam_pct":2.7,"ndwi":0.15,"ndvi":0.59,"spi6":0.99,"rain_pct":123.0},{"y":2011,"dry_pct":95.4,"dry_ha":40.8,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.11,"rain_pct":103.0},{"y":2012,"dry_pct":65.9,"dry_ha":28.2,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.56,"rain_pct":99.0},{"y":2013,"dry_pct":null,"dry_ha":null,"mam_pct":83.6,"ndwi":0.132,"ndvi":0.619,"spi6":0.5,"rain_pct":110.0},{"y":2014,"dry_pct":90.9,"dry_ha":38.9,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.27,"rain_pct":110.0},{"y":2015,"dry_pct":93.1,"dry_ha":39.8,"mam_pct":null,"ndwi":0.114,"ndvi":0.608,"spi6":0.29,"rain_pct":104.0},{"y":2016,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":0.109,"ndvi":0.611,"spi6":0.96,"rain_pct":118.0},{"y":2017,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.73,"rain_pct":89.0},{"y":2018,"dry_pct":92.6,"dry_ha":39.6,"mam_pct":null,"ndwi":0.118,"ndvi":0.636,"spi6":-1.12,"rain_pct":88.0},{"y":2019,"dry_pct":89.1,"dry_ha":38.1,"mam_pct":null,"ndwi":0.12,"ndvi":0.635,"spi6":-1.89,"rain_pct":71.0},{"y":2020,"dry_pct":89.1,"dry_ha":38.1,"mam_pct":null,"ndwi":0.144,"ndvi":0.623,"spi6":-0.94,"rain_pct":85.0},{"y":2021,"dry_pct":90.5,"dry_ha":38.7,"mam_pct":null,"ndwi":0.104,"ndvi":0.623,"spi6":0.13,"rain_pct":99.0},{"y":2022,"dry_pct":91.2,"dry_ha":39.0,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.54,"rain_pct":107.0},{"y":2023,"dry_pct":91.2,"dry_ha":39.0,"mam_pct":84.8,"ndwi":0.154,"ndvi":0.649,"spi6":0.29,"rain_pct":106.0},{"y":2024,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-3.02,"rain_pct":56.0},{"y":2025,"dry_pct":91.2,"dry_ha":39.0,"mam_pct":84.0,"ndwi":0.146,"ndvi":0.644,"spi6":-1.67,"rain_pct":75.0}]},{"id":"kaluba","name":"Kaluba Dam","town":"Mufulira","lat":-12.4738,"lon":28.2389,"footprint_ha":286.0,"reliability":"Medium","why":"Landsat and Sentinel-2 disagree on year-to-year change (r=0.58)","water":{"trend":"no trend","p":0.0471,"pts_dec":1.14,"pct_dec":1.2,"lo":0.0,"hi":3.2,"span":"1996-2025, n=25","rain_rho":-0.05,"rain_p":0.81,"resid_trend":"no trend","resid_p":0.199},"canopy":{"slope_dec":0.0103,"p":0.1019,"lo":-0.0049,"hi":0.0308},"series":[{"y":1996,"dry_pct":93.6,"dry_ha":268.0,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.37,"rain_pct":98.0},{"y":1997,"dry_pct":79.0,"dry_ha":226.0,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.06,"rain_pct":100.0},{"y":1998,"dry_pct":94.7,"dry_ha":271.2,"mam_pct":90.7,"ndwi":0.175,"ndvi":0.601,"spi6":0.27,"rain_pct":111.0},{"y":1999,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.12,"rain_pct":101.0},{"y":2000,"dry_pct":88.2,"dry_ha":252.5,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.91,"rain_pct":87.0},{"y":2001,"dry_pct":95.8,"dry_ha":274.1,"mam_pct":81.9,"ndwi":0.211,"ndvi":0.655,"spi6":0.84,"rain_pct":127.0},{"y":2002,"dry_pct":93.2,"dry_ha":266.7,"mam_pct":86.9,"ndwi":0.141,"ndvi":0.635,"spi6":-0.81,"rain_pct":90.0},{"y":2003,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.13,"rain_pct":101.0},{"y":2004,"dry_pct":94.2,"dry_ha":269.7,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":-0.32,"rain_pct":97.0},{"y":2005,"dry_pct":90.8,"dry_ha":259.7,"mam_pct":74.9,"ndwi":0.141,"ndvi":0.62,"spi6":-0.73,"rain_pct":100.0},{"y":2006,"dry_pct":90.3,"dry_ha":258.5,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.05,"rain_pct":100.0},{"y":2007,"dry_pct":84.2,"dry_ha":241.1,"mam_pct":null,"ndwi":0.203,"ndvi":0.672,"spi6":0.04,"rain_pct":108.0},{"y":2008,"dry_pct":93.4,"dry_ha":267.2,"mam_pct":80.2,"ndwi":0.145,"ndvi":0.626,"spi6":-0.83,"rain_pct":91.0},{"y":2009,"dry_pct":null,"dry_ha":null,"mam_pct":61.8,"ndwi":0.19,"ndvi":0.674,"spi6":0.02,"rain_pct":113.0},{"y":2010,"dry_pct":null,"dry_ha":null,"mam_pct":41.7,"ndwi":0.24,"ndvi":0.633,"spi6":1.07,"rain_pct":131.0},{"y":2011,"dry_pct":null,"dry_ha":null,"mam_pct":null,"ndwi":null,"ndvi":null,"spi6":0.02,"rain_pct":104.0},{"y":2012,"dry_pct":95.0,"dry_ha":271.8,"mam_pct":88.8,"ndwi":0.232,"ndvi":0.688,"spi6":0.02,"rain_pct":111.0},{"y":2013,"dry_pct":97.9,"dry_ha":280.1,"mam_pct":91.7,"ndwi":0.186,"ndvi":0.662,"spi6":-0.1,"rain_pct":103.0},{"y":2014,"dry_pct":94.1,"dry_ha":269.2,"mam_pct":87.5,"ndwi":0.206,"ndvi":0.651,"spi6":0.52,"rain_pct":118.0},{"y":2015,"dry_pct":96.9,"dry_ha":277.3,"mam_pct":92.8,"ndwi":0.182,"ndvi":0.664,"spi6":0.26,"rain_pct":103.0},{"y":2016,"dry_pct":94.8,"dry_ha":271.4,"mam_pct":89.6,"ndwi":0.221,"ndvi":0.682,"spi6":0.65,"rain_pct":114.0},{"y":2017,"dry_pct":95.8,"dry_ha":274.2,"mam_pct":88.5,"ndwi":0.211,"ndvi":0.688,"spi6":-1.86,"rain_pct":76.0},{"y":2018,"dry_pct":96.8,"dry_ha":277.1,"mam_pct":92.2,"ndwi":0.177,"ndvi":0.672,"spi6":-1.53,"rain_pct":82.0},{"y":2019,"dry_pct":94.6,"dry_ha":270.8,"mam_pct":null,"ndwi":0.209,"ndvi":0.679,"spi6":-1.85,"rain_pct":72.0},{"y":2020,"dry_pct":92.1,"dry_ha":263.7,"mam_pct":87.4,"ndwi":0.192,"ndvi":0.666,"spi6":-0.99,"rain_pct":87.0},{"y":2021,"dry_pct":94.6,"dry_ha":270.7,"mam_pct":80.4,"ndwi":0.179,"ndvi":0.639,"spi6":0.04,"rain_pct":100.0},{"y":2022,"dry_pct":94.7,"dry_ha":270.9,"mam_pct":89.0,"ndwi":0.212,"ndvi":0.677,"spi6":-0.15,"rain_pct":97.0},{"y":2023,"dry_pct":92.6,"dry_ha":265.0,"mam_pct":85.4,"ndwi":0.222,"ndvi":0.683,"spi6":0.25,"rain_pct":108.0},{"y":2024,"dry_pct":96.2,"dry_ha":275.3,"mam_pct":91.7,"ndwi":0.196,"ndvi":0.663,"spi6":-3.15,"rain_pct":55.0},{"y":2025,"dry_pct":96.8,"dry_ha":276.9,"mam_pct":91.2,"ndwi":0.218,"ndvi":0.698,"spi6":-1.75,"rain_pct":78.0}]}],"decades":[{"site":"kafubu","name":"Kafubu Dam","variable":"water cover (% of footprint), end of dry season","1996-2005":75.9183673469,"n 1996-2005":8,"2006-2015":83.6904761905,"n 2006-2015":8,"2016-2025":60.6575963719,"n 2016-2025":10},{"site":"kafubu","name":"Kafubu Dam","variable":"canopy NDWI (harmonised), end of rains","1996-2005":0.2115005261,"n 1996-2005":4,"2006-2015":0.2374266219,"n 2006-2015":9,"2016-2025":0.2585973359,"n 2016-2025":10},{"site":"mindolo","name":"Mindolo Dam","variable":"water cover (% of footprint), end of dry season","1996-2005":97.7377093463,"n 1996-2005":8,"2006-2015":96.0793393532,"n 2006-2015":7,"2016-2025":95.4619124797,"n 2016-2025":10},{"site":"mindolo","name":"Mindolo Dam","variable":"canopy NDWI (harmonised), end of rains","1996-2005":0.02689814,"n 1996-2005":3,"2006-2015":0.0753065628,"n 2006-2015":9,"2016-2025":0.1005797141,"n 2016-2025":10},{"site":"fitula","name":"Fitula Dam","variable":"water cover (% of footprint), end of dry season","1996-2005":87.037593985,"n 1996-2005":7,"2006-2015":88.9122807018,"n 2006-2015":6,"2016-2025":90.6766917293,"n 2016-2025":7},{"site":"fitula","name":"Fitula Dam","variable":"canopy NDWI (harmonised), end of rains","1996-2005":0.0989757345,"n 1996-2005":3,"2006-2015":0.128205143,"n 2006-2015":6,"2016-2025":0.1277225833,"n 2016-2025":7},{"site":"kaluba","name":"Kaluba Dam","variable":"water cover (% of footprint), end of dry season","1996-2005":91.1949685535,"n 1996-2005":8,"2006-2015":93.0997304582,"n 2006-2015":7,"2016-2025":94.8993710692,"n 2016-2025":10},{"site":"kaluba","name":"Kaluba Dam","variable":"canopy NDWI (harmonised), end of rains","1996-2005":0.1671993811,"n 1996-2005":4,"2006-2015":0.1978476162,"n 2006-2015":8,"2016-2025":0.2036012175,"n 2016-2025":10},{"site":"makoma","name":"Makoma Dam","variable":"water cover (% of footprint), end of dry season","1996-2005":59.1836734694,"n 1996-2005":7,"2006-2015":53.4733124019,"n 2006-2015":8,"2016-2025":71.6797488226,"n 2016-2025":10},{"site":"makoma","name":"Makoma Dam","variable":"canopy NDWI (harmonised), end of rains","1996-2005":0.0143907102,"n 1996-2005":3,"2006-2015":0.0691028138,"n 2006-2015":8,"2016-2025":0.0980878814,"n 2016-2025":10}],"condition":[{"site":"mindolo","index":"MCI","year":1998,"pct_natural_veg_in_drought":72.0646838002},{"site":"mindolo","index":"MCI","year":2002,"pct_natural_veg_in_drought":83.9214553855},{"site":"mindolo","index":"MCI","year":2005,"pct_natural_veg_in_drought":77.7128306036},{"site":"mindolo","index":"MCI","year":2006,"pct_natural_veg_in_drought":44.4932139763},{"site":"mindolo","index":"MCI","year":2007,"pct_natural_veg_in_drought":44.0023101357},{"site":"mindolo","index":"MCI","year":2008,"pct_natural_veg_in_drought":79.0355183367},{"site":"mindolo","index":"MCI","year":2009,"pct_natural_veg_in_drought":26.8553277505},{"site":"mindolo","index":"MCI","year":2010,"pct_natural_veg_in_drought":6.3413225527},{"site":"mindolo","index":"MCI","year":2012,"pct_natural_veg_in_drought":20.4606886826},{"site":"mindolo","index":"MCI","year":2013,"pct_natural_veg_in_drought":43.1706612763},{"site":"mindolo","index":"MCI","year":2014,"pct_natural_veg_in_drought":34.7733179324},{"site":"mindolo","index":"MCI","year":2015,"pct_natural_veg_in_drought":25.2035807104},{"site":"mindolo","index":"MCI","year":2016,"pct_natural_veg_in_drought":16.1247473289},{"site":"mindolo","index":"MCI","year":2017,"pct_natural_veg_in_drought":9.2058908461},{"site":"mindolo","index":"MCI","year":2018,"pct_natural_veg_in_drought":13.3063817499},{"site":"mindolo","index":"MCI","year":2019,"pct_natural_veg_in_drought":22.876118972},{"site":"mindolo","index":"MCI","year":2020,"pct_natural_veg_in_drought":3.1533352584},{"site":"mindolo","index":"MCI","year":2021,"pct_natural_veg_in_drought":23.5229569737},{"site":"mindolo","index":"MCI","year":2022,"pct_natural_veg_in_drought":6.3124458562},{"site":"mindolo","index":"MCI","year":2023,"pct_natural_veg_in_drought":4.6318221195},{"site":"mindolo","index":"MCI","year":2024,"pct_natural_veg_in_drought":38.2442968524},{"site":"mindolo","index":"MCI","year":2025,"pct_natural_veg_in_drought":5.0765232457},{"site":"mindolo","index":"VCI","year":1998,"pct_natural_veg_in_drought":90.008663009},{"site":"mindolo","index":"VCI","year":2002,"pct_natural_veg_in_drought":72.7403984984},{"site":"mindolo","index":"VCI","year":2005,"pct_natural_veg_in_drought":67.6485907749},{"site":"mindolo","index":"VCI","year":2006,"pct_natural_veg_in_drought":28.8882471845},{"site":"mindolo","index":"VCI","year":2007,"pct_natural_veg_in_drought":55.5818654346},{"site":"mindolo","index":"VCI","year":2008,"pct_natural_veg_in_drought":82.0848974877},{"site":"mindolo","index":"VCI","year":2009,"pct_natural_veg_in_drought":16.3499855617},{"site":"mindolo","index":"VCI","year":2010,"pct_natural_veg_in_drought":15.0101068438},{"site":"mindolo","index":"VCI","year":2012,"pct_natural_veg_in_drought":11.470208015},{"site":"mindolo","index":"VCI","year":2013,"pct_natural_veg_in_drought":21.8712099336},{"site":"mindolo","index":"VCI","year":2014,"pct_natural_veg_in_drought":35.9052844355},{"site":"mindolo","index":"VCI","year":2015,"pct_natural_veg_in_drought":9.4600057753},{"site":"mindolo","index":"VCI","year":2016,"pct_natural_veg_in_drought":4.7473289056},{"site":"mindolo","index":"VCI","year":2017,"pct_natural_veg_in_drought":2.6566560785},{"site":"mindolo","index":"VCI","year":2018,"pct_natural_veg_in_drought":3.0262777938},{"site":"mindolo","index":"VCI","year":2019,"pct_natural_veg_in_drought":7.3520069304},{"site":"mindolo","index":"VCI","year":2020,"pct_natural_veg_in_drought":3.7308691886},{"site":"mindolo","index":"VCI","year":2021,"pct_natural_veg_in_drought":7.7216286457},{"site":"mindolo","index":"VCI","year":2022,"pct_natural_veg_in_drought":4.3084031187},{"site":"mindolo","index":"VCI","year":2023,"pct_natural_veg_in_drought":2.9396477043},{"site":"mindolo","index":"VCI","year":2024,"pct_natural_veg_in_drought":16.2460294542},{"site":"mindolo","index":"VCI","year":2025,"pct_natural_veg_in_drought":4.8108576379},{"site":"makoma","index":"MCI","year":1998,"pct_natural_veg_in_drought":36.3121802547},{"site":"makoma","index":"MCI","year":2002,"pct_natural_veg_in_drought":87.0142592794},{"site":"makoma","index":"MCI","year":2005,"pct_natural_veg_in_drought":84.423642103},{"site":"makoma","index":"MCI","year":2006,"pct_natural_veg_in_drought":34.3801023185},{"site":"makoma","index":"MCI","year":2007,"pct_natural_veg_in_drought":31.1091760096},{"site":"makoma","index":"MCI","year":2008,"pct_natural_veg_in_drought":71.4705562207},{"site":"makoma","index":"MCI","year":2009,"pct_natural_veg_in_drought":13.6061826494},{"site":"makoma","index":"MCI","year":2012,"pct_natural_veg_in_drought":15.4185261783},{"site":"makoma","index":"MCI","year":2013,"pct_natural_veg_in_drought":19.8867965604},{"site":"makoma","index":"MCI","year":2014,"pct_natural_veg_in_drought":34.6413410254},{"site":"makoma","index":"MCI","year":2015,"pct_natural_veg_in_drought":20.2786546207},{"site":"makoma","index":"MCI","year":2016,"pct_natural_veg_in_drought":15.8920213345},{"site":"makoma","index":"MCI","year":2017,"pct_natural_veg_in_drought":14.3681288778},{"site":"makoma","index":"MCI","year":2018,"pct_natural_veg_in_drought":14.4443235006},{"site":"makoma","index":"MCI","year":2019,"pct_natural_veg_in_drought":15.9954283226},{"site":"makoma","index":"MCI","year":2020,"pct_natural_veg_in_drought":15.663437466},{"site":"makoma","index":"MCI","year":2021,"pct_natural_veg_in_drought":31.3704147164},{"site":"makoma","index":"MCI","year":2022,"pct_natural_veg_in_drought":12.9966256667},{"site":"makoma","index":"MCI","year":2023,"pct_natural_veg_in_drought":7.6847719604},{"site":"makoma","index":"MCI","year":2024,"pct_natural_veg_in_drought":34.5052791989},{"site":"makoma","index":"MCI","year":2025,"pct_natural_veg_in_drought":12.1965821269},{"site":"makoma","index":"VCI","year":1998,"pct_natural_veg_in_drought":51.278981169},{"site":"makoma","index":"VCI","year":2002,"pct_natural_veg_in_drought":72.9291390008},{"site":"makoma","index":"VCI","year":2005,"pct_natural_veg_in_drought":75.405464243},{"site":"makoma","index":"VCI","year":2006,"pct_natural_veg_in_drought":17.4921084141},{"site":"makoma","index":"VCI","year":2007,"pct_natural_veg_in_drought":64.0198106019},{"site":"makoma","index":"VCI","year":2008,"pct_natural_veg_in_drought":64.6293675846},{"site":"makoma","index":"VCI","year":2009,"pct_natural_veg_in_drought":7.3854359421},{"site":"makoma","index":"VCI","year":2012,"pct_natural_veg_in_drought":6.8847284206},{"site":"makoma","index":"VCI","year":2013,"pct_natural_veg_in_drought":13.1544573854},{"site":"makoma","index":"VCI","year":2014,"pct_natural_veg_in_drought":28.1756830304},{"site":"makoma","index":"VCI","year":2015,"pct_natural_veg_in_drought":16.0389681071},{"site":"makoma","index":"VCI","year":2016,"pct_natural_veg_in_drought":14.7218896266},{"site":"makoma","index":"VCI","year":2017,"pct_natural_veg_in_drought":11.842821378},{"site":"makoma","index":"VCI","year":2018,"pct_natural_veg_in_drought":8.7895939915},{"site":"makoma","index":"VCI","year":2019,"pct_natural_veg_in_drought":11.3475563296},{"site":"makoma","index":"VCI","year":2020,"pct_natural_veg_in_drought":20.9535212801},{"site":"makoma","index":"VCI","year":2021,"pct_natural_veg_in_drought":32.7419179275},{"site":"makoma","index":"VCI","year":2022,"pct_natural_veg_in_drought":19.2445847393},{"site":"makoma","index":"VCI","year":2023,"pct_natural_veg_in_drought":12.207467073},{"site":"makoma","index":"VCI","year":2024,"pct_natural_veg_in_drought":34.9025797322},{"site":"makoma","index":"VCI","year":2025,"pct_natural_veg_in_drought":14.5096331773},{"site":"kafubu","index":"MCI","year":1998,"pct_natural_veg_in_drought":44.8725509469},{"site":"kafubu","index":"MCI","year":2001,"pct_natural_veg_in_drought":14.2192516873},{"site":"kafubu","index":"MCI","year":2002,"pct_natural_veg_in_drought":68.1344603892},{"site":"kafubu","index":"MCI","year":2005,"pct_natural_veg_in_drought":53.5417076207},{"site":"kafubu","index":"MCI","year":2006,"pct_natural_veg_in_drought":15.0973068606},{"site":"kafubu","index":"MCI","year":2007,"pct_natural_veg_in_drought":56.6869798834},{"site":"kafubu","index":"MCI","year":2008,"pct_natural_veg_in_drought":67.1187995544},{"site":"kafubu","index":"MCI","year":2009,"pct_natural_veg_in_drought":31.8000131053},{"site":"kafubu","index":"MCI","year":2010,"pct_natural_veg_in_drought":14.1144092786},{"site":"kafubu","index":"MCI","year":2012,"pct_natural_veg_in_drought":13.6033025359},{"site":"kafubu","index":"MCI","year":2013,"pct_natural_veg_in_drought":18.9240547802},{"site":"kafubu","index":"MCI","year":2014,"pct_natural_veg_in_drought":53.6793132822},{"site":"kafubu","index":"MCI","year":2015,"pct_natural_veg_in_drought":9.173710766},{"site":"kafubu","index":"MCI","year":2016,"pct_natural_veg_in_drought":16.0605464911},{"site":"kafubu","index":"MCI","year":2017,"pct_natural_veg_in_drought":14.8354529959},{"site":"kafubu","index":"MCI","year":2018,"pct_natural_veg_in_drought":10.766004849},{"site":"kafubu","index":"MCI","year":2019,"pct_natural_veg_in_drought":19.9659262172},{"site":"kafubu","index":"MCI","year":2020,"pct_natural_veg_in_drought":18.8585282747},{"site":"kafubu","index":"MCI","year":2021,"pct_natural_veg_in_drought":29.329663849},{"site":"kafubu","index":"MCI","year":2022,"pct_natural_veg_in_drought":9.3113164275},{"site":"kafubu","index":"MCI","year":2023,"pct_natural_veg_in_drought":2.8438503375},{"site":"kafubu","index":"MCI","year":2024,"pct_natural_veg_in_drought":30.2666928773},{"site":"kafubu","index":"MCI","year":2025,"pct_natural_veg_in_drought":21.5844309023},{"site":"kafubu","index":"VCI","year":1998,"pct_natural_veg_in_drought":70.886573619},{"site":"kafubu","index":"VCI","year":2001,"pct_natural_veg_in_drought":12.6269576044},{"site":"kafubu","index":"VCI","year":2002,"pct_natural_veg_in_drought":49.2562741629},{"site":"kafubu","index":"VCI","year":2005,"pct_natural_veg_in_drought":53.8300242448},{"site":"kafubu","index":"VCI","year":2006,"pct_natural_veg_in_drought":10.7332415962},{"site":"kafubu","index":"VCI","year":2007,"pct_natural_veg_in_drought":75.1326911736},{"site":"kafubu","index":"VCI","year":2008,"pct_natural_veg_in_drought":66.6142454623},{"site":"kafubu","index":"VCI","year":2009,"pct_natural_veg_in_drought":22.3510910163},{"site":"kafubu","index":"VCI","year":2010,"pct_natural_veg_in_drought":37.3304501671},{"site":"kafubu","index":"VCI","year":2012,"pct_natural_veg_in_drought":9.7044754603},{"site":"kafubu","index":"VCI","year":2013,"pct_natural_veg_in_drought":10.0452132888},{"site":"kafubu","index":"VCI","year":2014,"pct_natural_veg_in_drought":36.5965533058},{"site":"kafubu","index":"VCI","year":2015,"pct_natural_veg_in_drought":6.395386934},{"site":"kafubu","index":"VCI","year":2016,"pct_natural_veg_in_drought":7.712469694},{"site":"kafubu","index":"VCI","year":2017,"pct_natural_veg_in_drought":8.5879113675},{"site":"kafubu","index":"VCI","year":2018,"pct_natural_veg_in_drought":6.1594915143},{"site":"kafubu","index":"VCI","year":2019,"pct_natural_veg_in_drought":8.9509206474},{"site":"kafubu","index":"VCI","year":2020,"pct_natural_veg_in_drought":17.6724985257},{"site":"kafubu","index":"VCI","year":2021,"pct_natural_veg_in_drought":18.2098158705},{"site":"kafubu","index":"VCI","year":2022,"pct_natural_veg_in_drought":8.9967892012},{"site":"kafubu","index":"VCI","year":2023,"pct_natural_veg_in_drought":4.4689076732},{"site":"kafubu","index":"VCI","year":2024,"pct_natural_veg_in_drought":21.5975362034},{"site":"kafubu","index":"VCI","year":2025,"pct_natural_veg_in_drought":13.7736714501},{"site":"fitula","index":"MCI","year":1998,"pct_natural_veg_in_drought":39.2551334276},{"site":"fitula","index":"MCI","year":2002,"pct_natural_veg_in_drought":46.720425638},{"site":"fitula","index":"MCI","year":2005,"pct_natural_veg_in_drought":66.1651010059},{"site":"fitula","index":"MCI","year":2007,"pct_natural_veg_in_drought":54.1441516336},{"site":"fitula","index":"MCI","year":2008,"pct_natural_veg_in_drought":50.2203009394},{"site":"fitula","index":"MCI","year":2009,"pct_natural_veg_in_drought":18.9292543021},{"site":"fitula","index":"MCI","year":2010,"pct_natural_veg_in_drought":25.1475600632},{"site":"fitula","index":"MCI","year":2013,"pct_natural_veg_in_drought":24.3328622496},{"site":"fitula","index":"MCI","year":2015,"pct_natural_veg_in_drought":25.7627400449},{"site":"fitula","index":"MCI","year":2016,"pct_natural_veg_in_drought":27.3006899992},{"site":"fitula","index":"MCI","year":2018,"pct_natural_veg_in_drought":30.0357469449},{"site":"fitula","index":"MCI","year":2019,"pct_natural_veg_in_drought":21.1572034251},{"site":"fitula","index":"MCI","year":2020,"pct_natural_veg_in_drought":15.3046803558},{"site":"fitula","index":"MCI","year":2021,"pct_natural_veg_in_drought":35.5141740793},{"site":"fitula","index":"MCI","year":2023,"pct_natural_veg_in_drought":12.4948042231},{"site":"fitula","index":"MCI","year":2025,"pct_natural_veg_in_drought":16.2108238424},{"site":"fitula","index":"VCI","year":1998,"pct_natural_veg_in_drought":48.6740377421},{"site":"fitula","index":"VCI","year":2002,"pct_natural_veg_in_drought":37.8169423892},{"site":"fitula","index":"VCI","year":2005,"pct_natural_veg_in_drought":54.9006567462},{"site":"fitula","index":"VCI","year":2007,"pct_natural_veg_in_drought":68.6258209327},{"site":"fitula","index":"VCI","year":2008,"pct_natural_veg_in_drought":44.708620833},{"site":"fitula","index":"VCI","year":2009,"pct_natural_veg_in_drought":12.9852855599},{"site":"fitula","index":"VCI","year":2010,"pct_natural_veg_in_drought":29.3873139912},{"site":"fitula","index":"VCI","year":2013,"pct_natural_veg_in_drought":27.1177986533},{"site":"fitula","index":"VCI","year":2015,"pct_natural_veg_in_drought":23.484911464},{"site":"fitula","index":"VCI","year":2016,"pct_natural_veg_in_drought":23.468284978},{"site":"fitula","index":"VCI","year":2018,"pct_natural_veg_in_drought":14.6978136171},{"site":"fitula","index":"VCI","year":2019,"pct_natural_veg_in_drought":11.2976972317},{"site":"fitula","index":"VCI","year":2020,"pct_natural_veg_in_drought":21.19876964},{"site":"fitula","index":"VCI","year":2021,"pct_natural_veg_in_drought":19.8104580597},{"site":"fitula","index":"VCI","year":2023,"pct_natural_veg_in_drought":11.0316734558},{"site":"fitula","index":"VCI","year":2025,"pct_natural_veg_in_drought":17.00889517},{"site":"kaluba","index":"MCI","year":1998,"pct_natural_veg_in_drought":51.7267080745},{"site":"kaluba","index":"MCI","year":2001,"pct_natural_veg_in_drought":28.8894409938},{"site":"kaluba","index":"MCI","year":2002,"pct_natural_veg_in_drought":64.9937888199},{"site":"kaluba","index":"MCI","year":2005,"pct_natural_veg_in_drought":81.8236024845},{"site":"kaluba","index":"MCI","year":2007,"pct_natural_veg_in_drought":26.0770186335},{"site":"kaluba","index":"MCI","year":2008,"pct_natural_veg_in_drought":55.2645962733},{"site":"kaluba","index":"MCI","year":2009,"pct_natural_veg_in_drought":19.7565217391},{"site":"kaluba","index":"MCI","year":2010,"pct_natural_veg_in_drought":11.2},{"site":"kaluba","index":"MCI","year":2012,"pct_natural_veg_in_drought":15.7081075707},{"site":"kaluba","index":"MCI","year":2013,"pct_natural_veg_in_drought":19.6869565217},{"site":"kaluba","index":"MCI","year":2014,"pct_natural_veg_in_drought":24.3180124224},{"site":"kaluba","index":"MCI","year":2015,"pct_natural_veg_in_drought":16.6906832298},{"site":"kaluba","index":"MCI","year":2016,"pct_natural_veg_in_drought":8.4173913043},{"site":"kaluba","index":"MCI","year":2017,"pct_natural_veg_in_drought":8.6310559006},{"site":"kaluba","index":"MCI","year":2018,"pct_natural_veg_in_drought":21.8782608696},{"site":"kaluba","index":"MCI","year":2019,"pct_natural_veg_in_drought":25.3714285714},{"site":"kaluba","index":"MCI","year":2020,"pct_natural_veg_in_drought":33.1329192547},{"site":"kaluba","index":"MCI","year":2021,"pct_natural_veg_in_drought":31.547826087},{"site":"kaluba","index":"MCI","year":2022,"pct_natural_veg_in_drought":9.9776397516},{"site":"kaluba","index":"MCI","year":2023,"pct_natural_veg_in_drought":8.3279503106},{"site":"kaluba","index":"MCI","year":2024,"pct_natural_veg_in_drought":16.7453416149},{"site":"kaluba","index":"MCI","year":2025,"pct_natural_veg_in_drought":12.7155279503},{"site":"kaluba","index":"VCI","year":1998,"pct_natural_veg_in_drought":75.0658385093},{"site":"kaluba","index":"VCI","year":2001,"pct_natural_veg_in_drought":29.9527950311},{"site":"kaluba","index":"VCI","year":2002,"pct_natural_veg_in_drought":51.8956521739},{"site":"kaluba","index":"VCI","year":2005,"pct_natural_veg_in_drought":77.1031055901},{"site":"kaluba","index":"VCI","year":2007,"pct_natural_veg_in_drought":22.698136646},{"site":"kaluba","index":"VCI","year":2008,"pct_natural_veg_in_drought":50.7378881988},{"site":"kaluba","index":"VCI","year":2009,"pct_natural_veg_in_drought":14.4447204969},{"site":"kaluba","index":"VCI","year":2010,"pct_natural_veg_in_drought":31.5180124224},{"site":"kaluba","index":"VCI","year":2012,"pct_natural_veg_in_drought":9.9915494358},{"site":"kaluba","index":"VCI","year":2013,"pct_natural_veg_in_drought":21.5155279503},{"site":"kaluba","index":"VCI","year":2014,"pct_natural_veg_in_drought":35.5130434783},{"site":"kaluba","index":"VCI","year":2015,"pct_natural_veg_in_drought":13.0583850932},{"site":"kaluba","index":"VCI","year":2016,"pct_natural_veg_in_drought":9.8683229814},{"site":"kaluba","index":"VCI","year":2017,"pct_natural_veg_in_drought":4.2186335404},{"site":"kaluba","index":"VCI","year":2018,"pct_natural_veg_in_drought":10.3105590062},{"site":"kaluba","index":"VCI","year":2019,"pct_natural_veg_in_drought":12.6260869565},{"site":"kaluba","index":"VCI","year":2020,"pct_natural_veg_in_drought":22.9217391304},{"site":"kaluba","index":"VCI","year":2021,"pct_natural_veg_in_drought":39.8757763975},{"site":"kaluba","index":"VCI","year":2022,"pct_natural_veg_in_drought":12.8745341615},{"site":"kaluba","index":"VCI","year":2023,"pct_natural_veg_in_drought":12.4124223602},{"site":"kaluba","index":"VCI","year":2024,"pct_natural_veg_in_drought":17.8186335404},{"site":"kaluba","index":"VCI","year":2025,"pct_natural_veg_in_drought":12.7652173913}],"ew_counts":{"neither stressed":20,"same month":14,"NDWI first":8,"NDVI first":5},"region":[{"y":1996,"spi6":-0.48,"rain_pct":95.0,"rain_lo":91.0,"rain_hi":98.0},{"y":1997,"spi6":0.39,"rain_pct":105.0,"rain_lo":100.0,"rain_hi":109.0},{"y":1998,"spi6":0.15,"rain_pct":109.0,"rain_lo":106.0,"rain_hi":111.0},{"y":1999,"spi6":0.32,"rain_pct":103.0,"rain_lo":100.0,"rain_hi":107.0},{"y":2000,"spi6":-0.64,"rain_pct":90.0,"rain_lo":86.0,"rain_hi":93.0},{"y":2001,"spi6":1.17,"rain_pct":133.0,"rain_lo":127.0,"rain_hi":139.0},{"y":2002,"spi6":-0.59,"rain_pct":93.0,"rain_lo":90.0,"rain_hi":98.0},{"y":2003,"spi6":0.24,"rain_pct":102.0,"rain_lo":99.0,"rain_hi":108.0},{"y":2004,"spi6":-0.3,"rain_pct":97.0,"rain_lo":94.0,"rain_hi":100.0},{"y":2005,"spi6":-0.96,"rain_pct":93.0,"rain_lo":88.0,"rain_hi":100.0},{"y":2006,"spi6":-0.0,"rain_pct":100.0,"rain_lo":99.0,"rain_hi":101.0},{"y":2007,"spi6":-0.14,"rain_pct":103.0,"rain_lo":99.0,"rain_hi":108.0},{"y":2008,"spi6":-0.89,"rain_pct":87.0,"rain_lo":83.0,"rain_hi":92.0},{"y":2009,"spi6":0.23,"rain_pct":114.0,"rain_lo":110.0,"rain_hi":119.0},{"y":2010,"spi6":0.9,"rain_pct":123.0,"rain_lo":115.0,"rain_hi":131.0},{"y":2011,"spi6":0.28,"rain_pct":107.0,"rain_lo":103.0,"rain_hi":111.0},{"y":2012,"spi6":-0.45,"rain_pct":102.0,"rain_lo":97.0,"rain_hi":111.0},{"y":2013,"spi6":0.32,"rain_pct":109.0,"rain_lo":103.0,"rain_hi":115.0},{"y":2014,"spi6":0.55,"rain_pct":115.0,"rain_lo":110.0,"rain_hi":125.0},{"y":2015,"spi6":0.33,"rain_pct":103.0,"rain_lo":102.0,"rain_hi":104.0},{"y":2016,"spi6":0.59,"rain_pct":112.0,"rain_lo":104.0,"rain_hi":118.0},{"y":2017,"spi6":-0.64,"rain_pct":92.0,"rain_lo":76.0,"rain_hi":99.0},{"y":2018,"spi6":-1.17,"rain_pct":89.0,"rain_lo":82.0,"rain_hi":94.0},{"y":2019,"spi6":-1.69,"rain_pct":74.0,"rain_lo":71.0,"rain_hi":79.0},{"y":2020,"spi6":-0.98,"rain_pct":87.0,"rain_lo":81.0,"rain_hi":94.0},{"y":2021,"spi6":0.49,"rain_pct":108.0,"rain_lo":99.0,"rain_hi":121.0},{"y":2022,"spi6":0.06,"rain_pct":99.0,"rain_lo":92.0,"rain_hi":107.0},{"y":2023,"spi6":0.8,"rain_pct":118.0,"rain_lo":106.0,"rain_hi":137.0},{"y":2024,"spi6":-2.67,"rain_pct":62.0,"rain_lo":55.0,"rain_hi":69.0},{"y":2025,"spi6":-1.7,"rain_pct":77.0,"rain_lo":75.0,"rain_hi":79.0}],"veg":[{"site":"mindolo","variable":"ndvi","land_cover":"Natural vegetation","n_pixels":17315,"pct_up":75.7031475599,"pct_down":0.3003176437,"mean_change_per_decade":0.0597130181},{"site":"mindolo","variable":"ndvi","land_cover":"Cropland","n_pixels":26,"pct_up":26.9230769231,"pct_down":0.0,"mean_change_per_decade":0.0417784741},{"site":"mindolo","variable":"ndwi_moist","land_cover":"Natural vegetation","n_pixels":17315,"pct_up":55.2526710944,"pct_down":1.3283280393,"mean_change_per_decade":0.0436661439},{"site":"mindolo","variable":"ndwi_moist","land_cover":"Cropland","n_pixels":26,"pct_up":15.3846153846,"pct_down":0.0,"mean_change_per_decade":0.0365175959},{"site":"makoma","variable":"ndvi","land_cover":"Natural vegetation","n_pixels":18374,"pct_up":31.8112550343,"pct_down":1.5892021334,"mean_change_per_decade":0.0280910428},{"site":"makoma","variable":"ndvi","land_cover":"Cropland","n_pixels":1562,"pct_up":4.3533930858,"pct_down":1.2804097311,"mean_change_per_decade":0.0024931971},{"site":"makoma","variable":"ndwi_moist","land_cover":"Natural vegetation","n_pixels":18374,"pct_up":37.0741264831,"pct_down":1.0558397736,"mean_change_per_decade":0.0307526882},{"site":"makoma","variable":"ndwi_moist","land_cover":"Cropland","n_pixels":1562,"pct_up":5.4417413572,"pct_down":1.152368758,"mean_change_per_decade":0.0090490491},{"site":"kafubu","variable":"ndvi","land_cover":"Natural vegetation","n_pixels":15261,"pct_up":27.2131577223,"pct_down":0.7994233668,"mean_change_per_decade":0.0312162051},{"site":"kafubu","variable":"ndvi","land_cover":"Cropland","n_pixels":9255,"pct_up":6.3101026472,"pct_down":3.3819556996,"mean_change_per_decade":0.0104154355},{"site":"kafubu","variable":"ndwi_moist","land_cover":"Natural vegetation","n_pixels":15261,"pct_up":14.7041478278,"pct_down":0.7404495118,"mean_change_per_decade":0.0237852405},{"site":"kafubu","variable":"ndwi_moist","land_cover":"Cropland","n_pixels":9255,"pct_up":5.7806591032,"pct_down":2.3338735818,"mean_change_per_decade":0.0099074794},{"site":"fitula","variable":"ndvi","land_cover":"Natural vegetation","n_pixels":12029,"pct_up":20.6417823593,"pct_down":0.7232521407,"mean_change_per_decade":0.0247202045},{"site":"fitula","variable":"ndvi","land_cover":"Cropland","n_pixels":1198,"pct_up":3.67278798,"pct_down":5.3422370618,"mean_change_per_decade":-0.0083636213},{"site":"fitula","variable":"ndwi_moist","land_cover":"Natural vegetation","n_pixels":12029,"pct_up":4.8965001247,"pct_down":0.2078310749,"mean_change_per_decade":0.0205072272},{"site":"fitula","variable":"ndwi_moist","land_cover":"Cropland","n_pixels":1198,"pct_up":2.0033388982,"pct_down":0.5008347245,"mean_change_per_decade":0.0070124993},{"site":"kaluba","variable":"ndvi","land_cover":"Natural vegetation","n_pixels":20125,"pct_up":26.6633540373,"pct_down":0.6708074534,"mean_change_per_decade":0.0236806902},{"site":"kaluba","variable":"ndvi","land_cover":"Cropland","n_pixels":460,"pct_up":0.0,"pct_down":16.3043478261,"mean_change_per_decade":-0.0328174606},{"site":"kaluba","variable":"ndwi_moist","land_cover":"Natural vegetation","n_pixels":20125,"pct_up":22.5788819876,"pct_down":0.2881987578,"mean_change_per_decade":0.0214037858},{"site":"kaluba","variable":"ndwi_moist","land_cover":"Cropland","n_pixels":460,"pct_up":0.0,"pct_down":2.1739130435,"mean_change_per_decade":-0.0187656714}],"source":{"workbook":"ndwi_copperbelt/tables/Copperbelt_results.xlsx","climate":"ERA5 monthly reanalysis via Open-Meteo","generated":"2026-10-26"}}</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script>
+(function () {
+  const D = JSON.parse(document.getElementById("ndwi-data").textContent);
+  const YEARS = D.years;
+  const TICKS = [1996, 2001, 2006, 2011, 2016, 2021, 2025];
+  const DROUGHT = D.region.filter(r => r.spi6 !== null && r.spi6 < -1).map(r => r.y);
+  const DECS = [[1996, 2005], [2006, 2015], [2016, 2025]];
+  const byId = Object.fromEntries(D.sites.map(s => [s.id, s]));
+  // Land cover within 1.5 km (ESA WorldCover 2021, figure S3) and drought-condition summary (condition_timeline sheet)
+  const LC = {
+    mindolo: { tree: 28, shrub: 20, grass: 40, crop: 0, other: 12 },
+    makoma: { tree: 18, shrub: 40, grass: 27, crop: 7, other: 8 },
+    kafubu: { tree: 35, shrub: 15, grass: 11, crop: 37, other: 2 },
+    fitula: { tree: 48, shrub: 11, grass: 22, crop: 8, other: 11 },
+    kaluba: { tree: 59, shrub: 11, grass: 11, crop: 2, other: 17 }
+  };
+  const STRESS = {
+    mindolo: { worst: 2002, wv: 84, y24: 38, y25: 5 },
+    makoma: { worst: 2002, wv: 87, y24: 35, y25: 12 },
+    kafubu: { worst: 2002, wv: 68, y24: 30, y25: 22 },
+    fitula: { worst: 2005, wv: 66, y24: null, y25: 16 },
+    kaluba: { worst: 2005, wv: 82, y24: 17, y25: 13 }
+  };
+  const charts = {};
+  let current = "kafubu", currentFig = "site";
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const fmt = (v, d = 1) => (v === null || v === undefined || !isFinite(v)) ? "n/a" : (v > 0 ? "+" : "") + v.toFixed(d);
+  const fmtP = p => p === null ? "n/a" : p < 0.001 ? "< 0.001" : p.toFixed(3);
+  const short = s => s.name.replace(" Dam", "");
+
+  function waterVerdict(w) {
+    if (w.trend === "decreasing") return { t: "Declining", c: "bad" };
+    if (w.trend === "increasing") return { t: "Rising", c: "info" };
+    if (w.p !== null && w.p < 0.05) return { t: "Stable", c: "" };
+    return { t: "No clear trend", c: "" };
+  }
+  function canopyVerdict(c) {
+    if (c.p !== null && c.p < 0.05) return c.slope_dec > 0 ? { t: "Wetter", c: "good" } : { t: "Drier", c: "bad" };
+    return { t: "No clear trend", c: "" };
+  }
+  function decadeMeans(s) {
+    return DECS.map(([a, b]) => { const v = s.series.filter(r => r.y >= a && r.y <= b && r.dry_pct !== null).map(r => r.dry_pct); return v.length ? v.reduce((x, y) => x + y, 0) / v.length : null; });
+  }
+  const veg = (sid, v) => D.veg.find(x => x.site === sid && x.variable === v && x.land_cover === "Natural vegetation");
+
+  const FIGS = {
+    site: { label: "Site sheet", file: id => `assets/fig/05_site_${id}.jpg`,
+      cap: s => { const dm = decadeMeans(s); return `${s.name}: the satellite view, where water was gained or lost between decades, water cover in both seasons, shoreline leaf water and the drought index. Average dry-season cover by decade was ${dm.map(v => v === null ? "n/a" : v.toFixed(0) + "%").join(", ")}.`; } },
+    stress: { label: "Plant water stress", file: id => `assets/fig/07_canopy_stress_${id}.jpg`,
+      cap: s => { const t = STRESS[s.id]; return `Each pixel of natural vegetation within 1.5 km is scored against its own 30-year range, and anything below 35 counts as drought condition. The worst year around ${short(s)} was ${t.worst}, with ${t.wv}% of the vegetation in drought condition. In 2025 the share was ${t.y25}%${t.y24 === null ? "." : `, and in 2024 it was ${t.y24}%.`}`; } },
+    land: { label: "What grows here", file: id => `assets/fig/S3_landuse_${id}.jpg`,
+      cap: s => { const l = LC[s.id], g = veg(s.id, "ndvi"); return `Land cover within 1.5 km of ${short(s)}: ${l.tree}% trees, ${l.shrub}% shrubland, ${l.grass}% grassland${l.crop ? ` and ${l.crop}% cropland` : ", with almost no cropland"}. ${g.mean_change_per_decade >= 0 ? `Natural vegetation here is getting greener by ${g.mean_change_per_decade.toFixed(3)}` : `Natural vegetation here is losing ${Math.abs(g.mean_change_per_decade).toFixed(3)}`} NDVI per decade.`; } },
+    green: { label: "Greening or drying", file: id => `assets/fig/S4_vegetation_trends_${id}.jpg`,
+      cap: s => { const g = veg(s.id, "ndvi"), w = veg(s.id, "ndwi_moist"); return `Pixel trends in greenness and leaf water around ${short(s)}, after false-discovery correction. ${g.pct_up.toFixed(0)}% of natural-vegetation pixels became greener and ${g.pct_down.toFixed(1)}% browner. For leaf water, ${w.pct_up.toFixed(0)}% became wetter and ${w.pct_down.toFixed(1)}% drier.`; } }
+  };
+
+  const picker = document.getElementById("picker");
+  D.sites.forEach(s => {
+    const b = document.createElement("button");
+    b.type = "button"; b.setAttribute("role", "tab"); b.id = "tab-" + s.id; b.dataset.id = s.id;
+    const v = waterVerdict(s.water);
+    b.innerHTML = `<span class="dot ${v.c === "bad" ? "bad" : ""}" aria-hidden="true"></span>${short(s)}<span class="muted" style="font-size:0.82rem">${s.town}</span>`;
+    b.addEventListener("click", () => select(s.id));
+    picker.appendChild(b);
+  });
+  picker.addEventListener("keydown", e => {
+    if (!["ArrowRight", "ArrowLeft"].includes(e.key)) return;
+    const ids = D.sites.map(s => s.id); let i = ids.indexOf(current) + (e.key === "ArrowRight" ? 1 : -1);
+    i = (i + ids.length) % ids.length; select(ids[i]); document.getElementById("tab-" + ids[i]).focus();
+  });
+
+  const figdams = document.getElementById("figdams");
+  D.sites.forEach(s => {
+    const b = document.createElement("button"); b.type = "button"; b.setAttribute("role", "tab"); b.dataset.id = s.id; b.textContent = short(s);
+    b.addEventListener("click", () => select(s.id));
+    figdams.appendChild(b);
+  });
+  const figtabs = document.getElementById("figtabs");
+  Object.entries(FIGS).forEach(([k, f]) => {
+    const b = document.createElement("button"); b.type = "button"; b.setAttribute("role", "tab"); b.dataset.k = k; b.textContent = f.label;
+    b.addEventListener("click", () => { currentFig = k; renderFig(byId[current]); });
+    figtabs.appendChild(b);
+  });
+  const mapLink = document.createElement("a"); mapLink.className = "btn"; mapLink.target = "_blank"; mapLink.rel = "noopener"; mapLink.style.fontSize = "0.88rem"; mapLink.style.padding = "6px 12px";
+  figtabs.appendChild(mapLink);
+  function renderFig(s) {
+    const f = FIGS[currentFig];
+    figtabs.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", b.dataset.k === currentFig ? "true" : "false"));
+    figdams.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", b.dataset.id === s.id ? "true" : "false"));
+    const img = document.getElementById("figImg"); img.src = f.file(s.id); img.alt = `${f.label}, ${s.name}`;
+    document.getElementById("figBtn").dataset.full = f.file(s.id);
+    document.getElementById("figCap").textContent = f.cap(s);
+    document.getElementById("figs-title").textContent = `Maps and figures for ${s.name}`;
+    mapLink.href = `assets/maps/interactive_map_${s.id}.html`; mapLink.textContent = "Open the interactive map";
+  }
+
+  function renderBoard() {
+    const t = document.getElementById("board");
+    let h = `<thead><tr><th>Dam</th><th>Town</th><th>Water</th><th class="n">Change per decade</th><th class="n">95% interval</th><th class="n">p</th><th class="n">Years used</th><th>Leaf water</th><th>Reliability</th></tr></thead><tbody>`;
+    D.sites.forEach(s => {
+      const v = waterVerdict(s.water), c = canopyVerdict(s.canopy);
+      h += `<tr data-id="${s.id}" tabindex="0" ${s.id === current ? 'aria-current="true"' : ""}><td><b>${s.name}</b></td><td>${s.town}</td><td><span class="chip ${v.c}">${v.t}</span></td>
+        <td class="n">${fmt(s.water.pct_dec)}%</td><td class="n">${fmt(s.water.lo)} to ${fmt(s.water.hi)}</td><td class="n">${fmtP(s.water.p)}</td><td class="n">${s.water.n ?? s.water.span.split("n=")[1]}</td>
+        <td><span class="chip ${c.c}">${c.t}</span></td><td>${s.reliability}</td></tr>`;
+    });
+    t.innerHTML = h + "</tbody>";
+    t.querySelectorAll("tbody tr").forEach(tr => {
+      tr.addEventListener("click", () => { select(tr.dataset.id); document.getElementById("dashboard").scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); });
+      tr.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(tr.dataset.id); } });
+    });
+  }
+
+  function renderStats(s) {
+    const v = waterVerdict(s.water), c = canopyVerdict(s.canopy), dm = decadeMeans(s), l = LC[s.id];
+    const resid = s.water.resid_trend === "decreasing" ? "the decline is still there" : s.water.resid_trend === "increasing" ? "the rise is still there" : "no trend is left";
+    const parts = [["tree", "Trees"], ["shrub", "Shrubland"], ["grass", "Grassland"], ["crop", "Cropland"], ["other", "Other"]];
+    document.getElementById("stats").innerHTML = `
+      <h3>${s.name}<small>${s.town}, usual footprint ${s.footprint_ha} ha</small></h3>
+      <div class="chips"><span class="chip ${v.c}">Water: ${v.t}</span><span class="chip ${c.c}">Leaf water: ${c.t}</span></div>
+      <div class="stat"><span class="k">Dry-season water trend</span><span class="big">${fmt(s.water.pts_dec)} points per decade</span>
+        <span class="sub">That is ${fmt(s.water.pct_dec)}% of its average per decade, with a 95% interval of ${fmt(s.water.lo)} to ${fmt(s.water.hi)}% and p = ${fmtP(s.water.p)} over ${s.water.span.split("n=")[1]} years.</span></div>
+      <div class="stat"><span class="k">Average dry-season cover by decade</span>
+        <div class="decades">${DECS.map((d, i) => `<div><span>${d[0]} to ${String(d[1]).slice(2)}</span><b>${dm[i] === null ? "n/a" : dm[i].toFixed(0) + "%"}</b></div>`).join("")}</div></div>
+      <div class="stat"><span class="k">Does the water follow the rain?</span><span class="sub">The correlation with rainy-season rain is ρ = ${s.water.rain_rho.toFixed(2)} (p = ${fmtP(s.water.rain_p)}). After removing rainfall, ${resid} (p = ${fmtP(s.water.resid_p)}).</span></div>
+      <div class="stat"><span class="k">What grows within 1.5 km</span>
+        <div class="lcbar" role="img" aria-label="Land cover: ${parts.map(([k, n]) => `${n} ${l[k]}%`).join(", ")}">${parts.filter(([k]) => l[k] > 0).map(([k]) => `<span style="width:${l[k]}%;background:var(--lc-${k})"></span>`).join("")}</div>
+        <div class="lclegend">${parts.filter(([k]) => l[k] > 0).map(([k, n]) => `<span><i style="background:var(--lc-${k})"></i>${n} ${l[k]}%</span>`).join("")}</div></div>
+      <div class="stat"><span class="k">Reliability</span><span class="sub"><b>${s.reliability}</b>. ${s.why.replace(" (sensor artefact risk)", ", which can mean a sensor artefact").replace("year-to-year", "year to year")}.</span></div>`;
+  }
+
+  function numTable(s) {
+    let h = `<thead><tr><th>Year</th><th class="n">Dry-season water %</th><th class="n">Dry-season ha</th><th class="n">End-of-rains water %</th><th class="n">Leaf NDWI</th><th class="n">NDVI</th><th class="n">SPI-6</th><th class="n">Rain, % of normal</th></tr></thead><tbody>`;
+    const b = v => v === null || v === undefined ? "" : v;
+    s.series.forEach(r => { h += `<tr><td>${r.y}${DROUGHT.includes(r.y) ? " (drought)" : ""}</td><td class="n">${b(r.dry_pct)}</td><td class="n">${b(r.dry_ha)}</td><td class="n">${b(r.mam_pct)}</td><td class="n">${b(r.ndwi)}</td><td class="n">${b(r.ndvi)}</td><td class="n">${b(r.spi6)}</td><td class="n">${b(r.rain_pct)}</td></tr>`; });
+    document.getElementById("numTable").innerHTML = h + "</tbody>";
+  }
+
+  const droughtPlugin = {
+    id: "drought",
+    beforeDatasetsDraw(chart) {
+      const { ctx, chartArea: a, scales: { x } } = chart; if (!a) return;
+      const w = x.getPixelForValue(1) - x.getPixelForValue(0);
+      ctx.save(); ctx.fillStyle = css("--drought");
+      DROUGHT.forEach(y => { const i = YEARS.indexOf(y); if (i >= 0) ctx.fillRect(x.getPixelForValue(i) - w / 2, a.top, w, a.bottom - a.top); });
+      ctx.restore();
+    }
+  };
+  function baseOpts(yTitle) {
+    const ink2 = css("--ink-2"), muted = css("--muted"), line = css("--line");
+    return {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: "index", intersect: false },
+      layout: { padding: { top: 4, right: 6 } },
+      plugins: {
+        legend: { position: "top", align: "start", labels: { color: ink2, boxWidth: 12, boxHeight: 12, usePointStyle: true, padding: 14, font: { size: 12 }, filter: i => !i.text.startsWith("_") } },
+        tooltip: { backgroundColor: css("--surface"), titleColor: css("--ink"), bodyColor: ink2, borderColor: line, borderWidth: 1, padding: 10, boxPadding: 4, usePointStyle: true,
+          filter: i => !i.dataset.label.startsWith("_") && i.raw !== null,
+          callbacks: { title: it => it.length ? YEARS[it[0].dataIndex] + (DROUGHT.includes(YEARS[it[0].dataIndex]) ? ", drought year" : "") : "" } }
+      },
+      scales: {
+        x: { grid: { display: false }, border: { color: line }, ticks: { color: muted, autoSkip: false, maxRotation: 0, callback: (v, i) => TICKS.includes(YEARS[i]) ? YEARS[i] : "" } },
+        y: { grid: { color: line, drawTicks: false }, border: { display: false }, ticks: { color: muted, padding: 6 }, title: { display: !!yTitle, text: yTitle, color: muted, font: { size: 11 } } }
+      }
+    };
+  }
+  function senLine(s) {
+    const b = s.water.pts_dec / 10, pts = s.series.filter(r => r.dry_pct !== null);
+    if (!pts.length || s.water.pts_dec === null) return YEARS.map(() => null);
+    const res = pts.map(r => r.dry_pct - b * r.y).sort((p, q) => p - q), m = res.length;
+    const a = m % 2 ? res[(m - 1) / 2] : (res[m / 2 - 1] + res[m / 2]) / 2;
+    const y0 = pts[0].y, y1 = pts[pts.length - 1].y;
+    return YEARS.map(y => (y >= y0 && y <= y1) ? +Math.max(0, Math.min(100, a + b * y)).toFixed(1) : null);
+  }
+  function z(arr) {
+    const v = arr.filter(x => x !== null); if (v.length < 3) return arr.map(() => null);
+    const m = v.reduce((a, b) => a + b, 0) / v.length, sd = Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / (v.length - 1));
+    return arr.map(x => x === null ? null : +((x - m) / sd).toFixed(2));
+  }
+  function draw(s) {
+    Object.values(charts).forEach(c => c.destroy());
+    Chart.defaults.font.family = "DM Sans, Segoe UI, system-ui, sans-serif";
+    const dm = decadeMeans(s), sig = s.water.trend === "decreasing" || s.water.trend === "increasing";
+    const ser = k => s.series.map(r => r[k]);
+    const decData = i => YEARS.map(y => (y >= DECS[i][0] && y <= DECS[i][1] && dm[i] !== null) ? +dm[i].toFixed(1) : null);
+    const surf = css("--surface");
+    const wo = baseOpts("% of usual footprint"); wo.scales.y.min = 0; wo.scales.y.max = 100;
+    wo.plugins.tooltip.callbacks.label = c => ` ${c.dataset.label}: ${c.raw}%`;
+    charts.w = new Chart(document.getElementById("cWater"), {
+      type: "line",
+      data: { labels: YEARS, datasets: [
+        { label: "End of dry season", data: ser("dry_pct"), borderColor: css("--s-dry"), backgroundColor: css("--s-dry"), pointStyle: "rect", pointRadius: 4, pointHoverRadius: 6, borderWidth: 2, spanGaps: false, pointBorderColor: surf, pointBorderWidth: 1 },
+        { label: "End of rains", data: ser("mam_pct"), borderColor: css("--s-rains"), backgroundColor: css("--s-rains"), pointRadius: 4, pointHoverRadius: 6, borderWidth: 2, spanGaps: false, pointBorderColor: surf, pointBorderWidth: 1 },
+        { label: "Decade average (dry season)", data: decData(0), borderColor: css("--s-dec"), backgroundColor: css("--s-dec"), borderWidth: 3, pointRadius: 0, pointHoverRadius: 0, pointStyle: "line" },
+        { label: "_d2", data: decData(1), borderColor: css("--s-dec"), borderWidth: 3, pointRadius: 0, pointHoverRadius: 0 },
+        { label: "_d3", data: decData(2), borderColor: css("--s-dec"), borderWidth: 3, pointRadius: 0, pointHoverRadius: 0 },
+        { label: sig ? "Sen trend (significant)" : "Sen trend (not significant)", data: senLine(s), borderColor: css("--ink-2"), backgroundColor: css("--ink-2"), borderWidth: 1.5, borderDash: sig ? [] : [5, 4], pointRadius: 0, pointHoverRadius: 0, pointStyle: "line" }
+      ] },
+      options: wo, plugins: [droughtPlugin]
+    });
+    const co = baseOpts("score against own record (SD)"); co.scales.y.suggestedMin = -2.5; co.scales.y.suggestedMax = 2.5;
+    co.scales.y.grid.color = ctx => ctx.tick.value === 0 ? css("--muted") : css("--line");
+    co.plugins.tooltip.callbacks.label = c => ` ${c.dataset.label}: ${c.raw > 0 ? "+" : ""}${c.raw} SD`;
+    charts.c = new Chart(document.getElementById("cCanopy"), {
+      type: "line",
+      data: { labels: YEARS, datasets: [
+        { label: "Leaf water (NDWI)", data: z(ser("ndwi")), borderColor: css("--s-ndwi"), backgroundColor: css("--s-ndwi"), pointRadius: 4, pointHoverRadius: 6, borderWidth: 2, spanGaps: false, pointBorderColor: surf, pointBorderWidth: 1 },
+        { label: "Greenness (NDVI)", data: z(ser("ndvi")), borderColor: css("--s-ndvi"), backgroundColor: css("--s-ndvi"), pointStyle: "triangle", pointRadius: 5, pointHoverRadius: 7, borderWidth: 2, spanGaps: false, pointBorderColor: surf, pointBorderWidth: 1 }
+      ] },
+      options: co, plugins: [droughtPlugin]
+    });
+    const spi = ser("spi6");
+    const ro = baseOpts("SPI-6"); ro.plugins.legend.display = false; ro.scales.y.suggestedMin = -3; ro.scales.y.suggestedMax = 2;
+    ro.scales.y.grid.color = ctx => ctx.tick.value === -1 ? css("--s-neg") : ctx.tick.value === 0 ? css("--muted") : css("--line");
+    ro.plugins.tooltip.callbacks.label = c => { const r = s.series[c.dataIndex]; return ` SPI-6 ${c.raw > 0 ? "+" : ""}${c.raw}${r.rain_pct !== null ? `, rain ${r.rain_pct}% of normal` : ""}`; };
+    charts.r = new Chart(document.getElementById("cRain"), {
+      type: "bar",
+      data: { labels: YEARS, datasets: [{ label: "SPI-6", data: spi, backgroundColor: spi.map(v => v < 0 ? css("--s-neg") : css("--s-pos")), borderRadius: 3, borderSkipped: "start", categoryPercentage: 0.82, barPercentage: 0.9 }] },
+      options: ro, plugins: [droughtPlugin]
+    });
+  }
+
+  function select(id) {
+    if (!byId[id]) return; current = id; const s = byId[id];
+    document.querySelectorAll("#picker button").forEach(b => b.setAttribute("aria-selected", b.dataset.id === id ? "true" : "false"));
+    renderStats(s); numTable(s); renderBoard(); renderFig(s);
+    if (window.Chart) draw(s);
+  }
+
+  const lb = document.getElementById("lb"), lbImg = document.getElementById("lbImg");
+  document.addEventListener("click", e => {
+    const b = e.target.closest(".zoom"); if (!b) return;
+    const img = b.querySelector("img"); lbImg.src = b.dataset.full || img.src; lbImg.alt = img.alt;
+    if (lb.showModal) lb.showModal(); else lb.setAttribute("open", "");
+  });
+  document.getElementById("lbClose").addEventListener("click", () => lb.close());
+  lb.addEventListener("click", e => { if (e.target === lb) lb.close(); });
+
+  const start = /^#[a-z]+$/.test(location.hash) && byId[location.hash.slice(1)] ? location.hash.slice(1) : "kafubu";
+  select(start);
+  if (!window.Chart) window.addEventListener("load", () => window.Chart && draw(byId[current]));
+  const redraw = () => window.Chart && draw(byId[current]);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);
+  new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+})();
+</script>
+
+</body>
+</html>

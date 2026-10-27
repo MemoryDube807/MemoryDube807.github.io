@@ -1,0 +1,8 @@
+# Large intermediate data produced by the notebook
+ndwi_copperbelt/processed/
+ndwi_copperbelt/raw_meta/
+ndwi_copperbelt/gis/
+*.nc
+*.tif
+.ipynb_checkpoints/
+__pycache__/
