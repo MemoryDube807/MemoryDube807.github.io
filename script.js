@@ -1,5 +1,15 @@
 const projects = [
   {
+    name: "Copperbelt Reservoir Monitor",
+    language: "Python, Landsat, Chart.js",
+    description:
+      "A dashboard and report on 30 years of satellite water data at five Copperbelt dams, showing which reservoir is shrinking and why.",
+    link: "https://github.com/MemoryDube807/ndwi-copperbelt",
+    demo: "projects/ndwi-copperbelt/index.html",
+    demoLabel: "Dashboard & report",
+    sameTab: true
+  },
+  {
     name: "Memo Weather App",
     language: "HTML, CSS, JavaScript, API",
     description:
@@ -88,9 +98,11 @@ function renderProjects(items, container) {
   container.innerHTML = items
     .map(
       (item) => {
+        const demoTarget = item.sameTab ? "" : ' target="_blank" rel="noreferrer"';
         const demoButton = item.demo
-          ? `<a href="${item.demo}" target="_blank" rel="noreferrer">Live demo</a>`
+          ? `<a href="${item.demo}"${demoTarget}>${item.demoLabel || "Live demo"}</a>`
           : "";
+        const stars = item.stars !== undefined ? `<span class="stars">${item.stars}</span>` : "";
 
         return `
           <article class="project-card">
@@ -100,7 +112,7 @@ function renderProjects(items, container) {
             </div>
             <p>${item.description}</p>
             <div class="meta-row">
-              <span class="stars">${item.stars}</span>
+              ${stars}
               <span>Updated recently</span>
             </div>
             <div class="project-links">
