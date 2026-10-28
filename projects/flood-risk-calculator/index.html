@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FloodSense Zambia</title>
+<meta name="description" content="A 48-hour flood check for any point in Zambia using live rainfall, river and terrain data, backtested against 18 documented floods, by Memory Dube.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: an article column for the write-up, with figures breaking out wider and the dashboard in its own full-width band. Blue means water, brown means dry, as in the notebook figures. */
+:root {
+  --bg: #F4F6F8; --surface: #FFFFFF; --sunk: #E9EEF2; --ink: #102030; --ink-2: #33475A; --muted: #5A6E80; --line: #D3DCE4;
+  --accent: #1B5C8A; --warm: #9C541D;
+  --s-rains: #24589A; --s-dry: #3F8FCB; --s-dec: #B5651D; --s-ndwi: #2166AC; --s-ndvi: #3A8C3F; --s-pos: #2166AC; --s-neg: #A6611A;
+  --drought: rgba(166, 97, 26, 0.13);
+  --bad: #8F3A12; --bad-bg: #F7E4D8; --info: #1B5C8A; --info-bg: #E1ECF5; --good: #2B6631; --good-bg: #E0EFE1; --flat: #4A5C66; --flat-bg: #E6ECEE;
+  --lc-tree: #2F6B34; --lc-shrub: #C99A2E; --lc-grass: #A8B84A; --lc-crop: #B565A7; --lc-other: #9AA6B0;
+  --f-display: "DM Serif Display", Georgia, "Times New Roman", serif;
+  --f-body: "DM Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #080D16; --surface: #111B2B; --sunk: #0C1422; --ink: #EEF4FF; --ink-2: #C3CFDF; --muted: #93A4BA; --line: #23324A;
+  --accent: #72B7FF; --warm: #E0A26C;
+  --s-rains: #5A7FE6; --s-dry: #1C9EA3; --s-dec: #C27A36; --s-ndwi: #4E8FE0; --s-ndvi: #3FA650; --s-pos: #4E8FE0; --s-neg: #D08A45;
+  --drought: rgba(208, 138, 69, 0.16);
+  --bad: #F2AE85; --bad-bg: #3A2419; --info: #9CC8EE; --info-bg: #16324A; --good: #96D49B; --good-bg: #183020; --flat: #B3C3CB; --flat-bg: #1D2D36;
+  --lc-tree: #4E9E55; --lc-shrub: #D9AE45; --lc-grass: #B9C85E; --lc-crop: #C77DBA; --lc-other: #6F7E8C;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #080D16; --surface: #111B2B; --sunk: #0C1422; --ink: #EEF4FF; --ink-2: #C3CFDF; --muted: #93A4BA; --line: #23324A;
+  --accent: #72B7FF; --warm: #E0A26C;
+  --s-rains: #5A7FE6; --s-dry: #1C9EA3; --s-dec: #C27A36; --s-ndwi: #4E8FE0; --s-ndvi: #3FA650; --s-pos: #4E8FE0; --s-neg: #D08A45;
+  --drought: rgba(208, 138, 69, 0.16);
+  --bad: #F2AE85; --bad-bg: #3A2419; --info: #9CC8EE; --info-bg: #16324A; --good: #96D49B; --good-bg: #183020; --flat: #B3C3CB; --flat-bg: #1D2D36;
+  --lc-tree: #4E9E55; --lc-shrub: #D9AE45; --lc-grass: #B9C85E; --lc-crop: #C77DBA; --lc-other: #6F7E8C;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+a { color: var(--accent); text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+h1, h2, h3, h4 { margin: 0; font-weight: 400; text-wrap: balance; }
+h1 { font-family: var(--f-display); font-size: clamp(2.1rem, 4.4vw, 3.3rem); line-height: 1.08; }
+h2 { font-family: var(--f-display); font-size: clamp(1.6rem, 2.8vw, 2.1rem); line-height: 1.15; }
+h3 { font-family: var(--f-display); font-size: 1.35rem; line-height: 1.2; }
+h4 { font-size: 1rem; font-weight: 600; }
+p { margin: 0; }
+.mono, td.n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+
+.top { border-bottom: 1px solid var(--line); background: var(--surface); }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; padding-block: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 600; }
+.mark { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--line); display: grid; place-items: center; font-family: var(--f-display); font-size: 0.95rem; color: var(--ink); background: var(--sunk); }
+.top nav { display: flex; gap: 18px; flex-wrap: wrap; font-size: 0.93rem; }
+.top nav a { color: var(--ink-2); text-decoration: none; }
+.top nav a:hover { color: var(--accent); text-decoration: underline; }
+
+.hero .wrap { padding-block: 52px 36px; display: flex; flex-direction: column; gap: 20px; }
+.hero h1 { max-width: 22ch; }
+.abstract { max-width: 68ch; font-size: 1.1rem; color: var(--ink-2); display: flex; flex-direction: column; gap: 12px; }
+.byline { font-size: 0.93rem; color: var(--muted); max-width: 68ch; }
+.links { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 15px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-decoration: none; font-size: 0.93rem; font-weight: 500; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.btn:hover { border-color: var(--accent); }
+
+.found { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.found table { min-width: 720px; }
+.found td:first-child { font-weight: 600; width: 26%; }
+.found td:nth-child(2) { width: 22%; }
+.found td { white-space: normal; vertical-align: top; padding: 12px 16px; }
+.found th { padding: 10px 16px; }
+
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+th { font-weight: 600; color: var(--muted); font-size: 0.82rem; }
+tr:last-child td { border-bottom: none; }
+td.n, th.n { text-align: right; white-space: nowrap; }
+.tscroll { overflow-x: auto; }
+
+.band { background: var(--sunk); border-block: 1px solid var(--line); }
+.band > .wrap { padding-block: 44px; display: flex; flex-direction: column; gap: 20px; }
+.band-intro { display: flex; flex-direction: column; gap: 8px; max-width: 72ch; }
+.band-intro p { color: var(--ink-2); }
+.picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.picker button { font: inherit; font-size: 0.95rem; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 14px 6px 12px; display: inline-flex; gap: 8px; align-items: center; }
+.picker button[aria-selected="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 600; }
+.picker .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--flat); }
+.picker .dot.bad { background: var(--s-neg); }
+.dash { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 16px; align-items: start; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; min-width: 0; }
+.stats { display: flex; flex-direction: column; gap: 14px; font-size: 0.93rem; }
+.stats h3 { display: flex; flex-direction: column; gap: 2px; }
+.stats h3 small { font-family: var(--f-body); font-size: 0.86rem; color: var(--muted); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; font-size: 0.8rem; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--flat-bg); color: var(--flat); white-space: nowrap; align-self: flex-start; }
+.chip.bad { background: var(--bad-bg); color: var(--bad); }
+.chip.good { background: var(--good-bg); color: var(--good); }
+.chip.info { background: var(--info-bg); color: var(--info); }
+.stat { display: flex; flex-direction: column; gap: 5px; border-top: 1px solid var(--line); padding-top: 12px; }
+.stat .k { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+.stat .big { font-family: var(--f-mono); font-size: 1.4rem; }
+.stat .sub { color: var(--ink-2); }
+.decades { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.decades div { background: var(--sunk); border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; }
+.decades span { font-size: 0.75rem; color: var(--muted); }
+.decades b { font-family: var(--f-mono); font-weight: 500; }
+.lcbar { display: flex; height: 14px; border-radius: 4px; overflow: hidden; gap: 2px; background: var(--surface); }
+.lcbar span { display: block; height: 100%; }
+.lclegend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.8rem; color: var(--ink-2); }
+.lclegend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+.charts { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.chart-card { display: flex; flex-direction: column; gap: 10px; }
+.chart-card header { display: flex; flex-direction: column; gap: 2px; }
+.chart-card header p { font-size: 0.86rem; color: var(--muted); }
+.canvas-box { position: relative; height: 250px; }
+.canvas-box.short { height: 190px; }
+details.numbers summary { cursor: pointer; font-size: 0.92rem; color: var(--accent); }
+details.numbers td, details.numbers th { white-space: nowrap; }
+.figtabs { display: flex; flex-direction: column; gap: 12px; }
+.tabrow { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabrow button { font: inherit; font-size: 0.88rem; cursor: pointer; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); }
+.tabrow button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+#figdams button { border-radius: 999px; }
+#figdams button[aria-selected="true"] { background: var(--surface); color: var(--ink); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); font-weight: 600; }
+.figtabs .cap { font-size: 0.9rem; color: var(--ink-2); max-width: 90ch; }
+.board tbody tr { cursor: pointer; }
+.board tbody tr:hover { background: var(--sunk); }
+.board tbody tr[aria-current="true"] { background: var(--info-bg); }
+.board td { white-space: nowrap; }
+
+.report .wrap { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 48px; padding-block: 56px 72px; }
+.toc { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 20px); align-self: start; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; }
+.toc a { color: var(--ink-2); text-decoration: none; padding: 2px 0; }
+.toc a:hover { color: var(--accent); }
+article { display: flex; flex-direction: column; gap: 60px; min-width: 0; }
+article section { display: flex; flex-direction: column; gap: 18px; scroll-margin-top: 24px; }
+.prose { display: flex; flex-direction: column; gap: 14px; max-width: 68ch; color: var(--ink-2); }
+.prose ul, .prose ol { margin: 0; padding-left: 1.25em; display: flex; flex-direction: column; gap: 8px; }
+.prose strong { color: var(--ink); font-weight: 600; }
+.formula { font-family: var(--f-mono); font-size: 0.98rem; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; color: var(--ink); align-self: flex-start; max-width: 100%; overflow-x: auto; }
+.mini { max-width: 560px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+.mini td, .mini th { white-space: nowrap; }
+figure { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.zoom { padding: 0; border: 1px solid var(--line); background: #FFFFFF; border-radius: 10px; cursor: zoom-in; overflow: hidden; display: block; width: 100%; }
+.zoom img { display: block; width: 100%; height: auto; }
+figcaption { font-size: 0.9rem; color: var(--muted); max-width: 80ch; }
+figcaption b { color: var(--ink); font-weight: 600; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.steps { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 8px; max-width: 68ch; color: var(--ink-2); }
+.code-table td { white-space: normal; vertical-align: top; }
+.code-table td:first-child { font-family: var(--f-mono); white-space: nowrap; color: var(--ink); }
+pre.tree { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; overflow-x: auto; font-family: var(--f-mono); font-size: 0.85rem; line-height: 1.55; color: var(--ink-2); }
+code { font-family: var(--f-mono); font-size: 0.88em; background: var(--sunk); padding: 1px 5px; border-radius: 4px; }
+.refs { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; font-size: 0.92rem; color: var(--ink-2); max-width: 80ch; }
+footer { border-top: 1px solid var(--line); background: var(--surface); }
+footer .wrap { padding-block: 24px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 0.88rem; color: var(--muted); }
+dialog.lb { border: none; padding: 0; background: transparent; max-width: min(96vw, 1800px); max-height: 94vh; }
+dialog.lb::backdrop { background: rgba(5, 12, 16, 0.82); }
+dialog.lb img { display: block; max-width: 100%; max-height: 88vh; border-radius: 8px; background: #FFFFFF; }
+dialog.lb button { position: absolute; top: 8px; right: 8px; font: inherit; font-size: 0.9rem; padding: 6px 12px; border-radius: 8px; border: none; background: rgba(17, 34, 44, 0.85); color: #FFFFFF; cursor: pointer; }
+@media (max-width: 980px) {
+  .dash { grid-template-columns: 1fr; }
+  .report .wrap { grid-template-columns: 1fr; }
+  .toc { display: none; }
+}
+@media (max-width: 560px) {
+  body { font-size: 16px; }
+  .pair { grid-template-columns: 1fr; }
+  .canvas-box { height: 220px; }
+  .hero .wrap { padding-block: 32px 24px; }
+}
+
+/* FloodSense additions */
+:root { --warn: #8A5A00; --warn-bg: #FBEFD2; --obs: #4A5C66; --obs-bar: #C5CFD6; --band-ev: rgba(178, 56, 43, 0.12); --map-fill: #E9EEF2; --map-line: #9AA8B4; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --warn: #F2C46D; --warn-bg: #3A2E14; --obs: #B3C3CB; --obs-bar: #2E3E52; --band-ev: rgba(240, 134, 111, 0.16); --map-fill: #16233A; --map-line: #3A4D68; } }
+:root[data-theme="dark"] { --warn: #F2C46D; --warn-bg: #3A2E14; --obs: #B3C3CB; --obs-bar: #2E3E52; --band-ev: rgba(240, 134, 111, 0.16); --map-fill: #16233A; --map-line: #3A4D68; }
+.hero h1 { max-width: 28ch; }
+.band.alt { background: var(--bg); border-top: 1px solid var(--line); }
+.chip.warn { background: var(--warn-bg); color: var(--warn); }
+.mapwrap { background: var(--sunk); border-radius: 10px; padding: 6px; }
+#map { width: 100%; height: auto; display: block; cursor: crosshair; }
+#map .prov path { fill: var(--map-fill); stroke: var(--map-line); stroke-width: 1; }
+#map .pt { fill: var(--muted); stroke: var(--surface); stroke-width: 1; cursor: pointer; }
+#map .ptev { fill: var(--bad); stroke: var(--surface); stroke-width: 1.2; cursor: pointer; }
+#map .selring { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+#map .seldot { fill: var(--accent); }
+.pick { display: flex; flex-direction: column; gap: 4px; font-size: 0.84rem; color: var(--muted); font-weight: 600; }
+.pick select { font: inherit; font-weight: 400; font-size: 0.95rem; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+#checkBtn { justify-content: center; font-size: 1rem; cursor: pointer; }
+#checkBtn[disabled] { opacity: 0.6; cursor: progress; }
+.reshead { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.reshead h3 { display: flex; flex-direction: column; gap: 2px; }
+.reshead h3 small { font-family: var(--f-body); font-size: 0.86rem; color: var(--muted); }
+.riskbox { display: flex; flex-direction: column; align-items: center; padding: 8px 18px; border-radius: 12px; min-width: 130px; }
+.riskbox.good { background: var(--good-bg); color: var(--good); }
+.riskbox.warn { background: var(--warn-bg); color: var(--warn); }
+.riskbox.bad { background: var(--bad-bg); color: var(--bad); }
+.riskbox .lv { font-weight: 700; letter-spacing: 0.04em; font-size: 0.95rem; }
+.riskbox .num { font-family: var(--f-mono); font-size: 2rem; line-height: 1.1; }
+.riskbox .num small { font-size: 0.9rem; opacity: 0.8; }
+.advice { font-size: 1.02rem; margin: 12px 0 14px; }
+.factors { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+.factor .fhead { display: flex; justify-content: space-between; font-size: 0.86rem; }
+.factor .k { color: var(--muted); font-weight: 600; }
+.fbar { height: 8px; background: var(--sunk); border-radius: 4px; overflow: hidden; margin: 5px 0; }
+.fbar span { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+.factor .sub { font-size: 0.9rem; color: var(--ink-2); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.tile { display: flex; flex-direction: column; gap: 4px; }
+.tile .k { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+.tile .big { font-family: var(--f-mono); font-size: 1.5rem; }
+.tile .sub { font-size: 0.88rem; color: var(--ink-2); }
+.canvas-box.tall { height: 380px; }
+.smgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px 18px; }
+.sm h5 { margin: 0 0 4px; font-size: 0.84rem; font-weight: 600; color: var(--ink-2); font-family: var(--f-body); display: flex; justify-content: space-between; gap: 6px; align-items: center; }
+.sm h5 .chip { font-size: 0.72rem; padding: 2px 7px; }
+.sm-box { position: relative; height: 140px; }
+#evTable td, #plTable td { white-space: nowrap; }
+#evTable tbody tr, #plTable tbody tr { cursor: default; }
+#evTable caption { caption-side: bottom; text-align: left; font-size: 0.82rem; color: var(--muted); padding: 8px 4px; }
+@media (max-width: 760px) { .smgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } .sm-box { height: 120px; } .canvas-box.tall { height: 320px; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../../index.html#projects"><span class="mark" aria-hidden="true">MD</span>FloodSense Zambia</a>
+    <nav aria-label="Page sections">
+      <a href="../../index.html#projects">Back to portfolio</a>
+      <a href="#check">Check a place</a>
+      <a href="#backtest">Backtest</a>
+      <a href="#method">Method</a>
+      <a href="#code">Code</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <h1>FloodSense Zambia: a 48-hour flood check tested against 18 real floods</h1>
+    <div class="abstract">
+      <p>Pick any point in Zambia and this tool pulls the live rainfall forecast, the last month of rain, the flow of the nearest river and the shape of the land around it, then says how likely flooding is over the next two days and what to do about it.</p>
+      <p>The first version of this calculator asked the user to type in rainfall, elevation, drainage and soil, and scored them with weights I had picked by hand. When I tested it, two problems stood out. It scored height above sea level, so every Zambian town got the minimum elevation score. And its HIGH level was almost impossible to reach in Zambia: across 18 documented floods it would have issued HIGH for 3 of them, and only if the user said the drainage was poor and the soil clay. I rebuilt it around live data and measured each factor against the place’s own climate, then backtested the new score on 29 rainy seasons at 12 places that flooded between 2017 and 2026.</p>
+    </div>
+    <p class="byline"><a href="../../index.html">Memory Dube</a>, October 2026. Built with Python (pandas, Flask, pytest), JavaScript, Open-Meteo, ERA5, GloFAS and the Copernicus DEM.</p>
+    <div class="links">
+      <a class="btn primary" href="#check">Check a place</a>
+      <a class="btn" href="https://github.com/MemoryDube807/flood-risk-calculator">Code on GitHub</a>
+      <a class="btn" href="data/backtest_results.json">Backtest data</a>
+    </div>
+    <div class="found">
+      <table>
+        <thead><tr><th>Question</th><th>Short answer</th><th>Evidence</th></tr></thead>
+        <tbody>
+          <tr><td>Does the score rise when floods happen?</td><td>Yes, outside Lusaka</td><td>15 of 18 documented floods reached MODERATE or higher, including all 13 outside Lusaka. 9 of 18 reached HIGH.</td></tr>
+          <tr><td>How often does it cry wolf?</td><td>About five watches a season</td><td>On rainy-season days with no recorded flood, a place gets about 5 MODERATE episodes and 2 HIGH episodes a season. Some of those will be floods nobody reported.</td></tr>
+          <tr><td>Is it better than the old calculator?</td><td>Yes, at the watch level</td><td>For the same 15 floods caught, the old rule (poor drainage, clay soil) raised twice as many alerts, 11.7 episodes a season against 5.2. Its HIGH level caught only 3 floods.</td></tr>
+          <tr><td>Where does it fail?</td><td>Lusaka’s urban floods</td><td>Three of five Lusaka floods came on days when the reanalysis showed only 7 to 16 mm over two days. Storms over the city are too small for a 9 to 30 km rainfall grid, and blocked drains do the rest.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="check" aria-labelledby="check-title">
+  <div class="wrap">
+    <div class="band-intro">
+      <h2 id="check-title">Check a place</h2>
+      <p>Click the map or pick a town, say how well the area drains, and press Check. The data comes live from Open-Meteo, so a check takes a few seconds. Rainfall and river flow are forecasts for today and tomorrow, compared with the place’s own records since 1991.</p>
+    </div>
+    <div class="dash">
+      <div class="card stats">
+        <h3>Location<small id="ptLabel">Lusaka (Kanyama), 15.445°S 28.245°E</small></h3>
+        <div class="mapwrap"><svg id="map" role="img" aria-label="Map of Zambia. Click to choose a point."></svg></div>
+        <label class="pick"><span>Town</span><select id="placePick"></select></label>
+        <label class="pick"><span>Drainage</span><select id="drainPick">
+          <option value="good">Good: water runs off quickly</option>
+          <option value="moderate" selected>Moderate</option>
+          <option value="poor">Poor: drains blocked or none</option>
+        </select></label>
+        <button type="button" class="btn primary" id="checkBtn">Check flood risk</button>
+        <p class="muted" style="font-size:0.84rem;margin:0">Drainage is local knowledge: blocked culverts, built-over streams and unlined drains in informal settlements all count as poor.</p>
+      </div>
+      <div class="charts">
+        <div class="card" id="result" aria-live="polite">
+          <p class="muted">Choose a place and press Check to see the next 48 hours.</p>
+        </div>
+        <div class="card chart-card" id="rainCard" hidden>
+          <header><h4>Rainfall, last two weeks and the next two days</h4><p>Daily totals in mm. The last two bars are the forecast that the score uses.</p></header>
+          <div class="canvas-box"><canvas id="cRain" role="img" aria-label="Daily rainfall"></canvas></div>
+        </div>
+        <div class="card chart-card" id="riverCard" hidden>
+          <header><h4>River flow</h4><p id="riverSub"></p></header>
+          <div class="canvas-box short"><canvas id="cRiver" role="img" aria-label="River discharge"></canvas></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band alt" id="backtest" aria-labelledby="bt-title">
+  <div class="wrap">
+    <div class="band-intro">
+      <h2 id="bt-title">Backtest: 18 floods, 12 places, 29 rainy seasons</h2>
+      <p>I rebuilt the daily score for every day from 1997 to 2026 at each place that flooded, using reanalysis rainfall and GloFAS river flow, then checked whether it was high in the days each flood was reported and how often it went high when no flood was recorded.</p>
+    </div>
+    <div class="tiles" id="tiles"></div>
+    <div class="card chart-card">
+      <header><h4>Floods caught against false alarms</h4><p>Each point is an alert threshold. Further up means more of the 18 floods caught; further left means fewer alerts on days with no recorded flood. Once alerts run above about two a season the new score sits above the plain rainfall rule; below that, a high rainfall threshold does as well or better. The two marked points are the old calculator’s own MODERATE and HIGH levels with poor drainage and clay soil.</p></header>
+      <div class="canvas-box tall"><canvas id="cCurve" role="img" aria-label="Floods caught against false alarm episodes per season"></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <header><h4>The score around each flood</h4><p>Daily score from 30 days before each reported flood to 15 days after. The shaded band is the reported flood window and the dashed lines are the MODERATE (35) and HIGH (50) thresholds. Lusaka’s five floods come last.</p></header>
+      <div class="smgrid" id="evGrid"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">
+        <h4>Every flood, factor by factor</h4>
+        <p class="muted" style="font-size:0.88rem">Values on the day the score peaked within the flood window. Ratios compare each factor with the place’s own climate: 1.0 means a 2-day fall of the size that comes about once in two years, ground as wet as on the wettest 10% of rainy-season days, or a river at its usual yearly peak.</p>
+      </div>
+      <div class="tscroll"><table class="board" id="evTable"></table></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px">
+        <h4>The 12 places</h4>
+        <p class="muted" style="font-size:0.88rem">Local climate references from 1991 to 2019, terrain, and the number of rainy-season days a year when the score was at MODERATE or HIGH with no flood on record.</p>
+      </div>
+      <div class="tscroll"><table class="board" id="plTable"></table></div>
+    </div>
+  </div>
+</section>
+
+<section class="report">
+  <div class="wrap">
+    <nav class="toc" aria-label="Contents">
+      <a href="#problem">The old calculator</a>
+      <a href="#data">Data</a>
+      <a href="#method">How the score works</a>
+      <a href="#results">Backtest results</a>
+      <a href="#lusaka">The Lusaka problem</a>
+      <a href="#use">Using it</a>
+      <a href="#limits">Limitations</a>
+      <a href="#code">The code</a>
+      <a href="#sources">Sources</a>
+    </nav>
+    <article>
+      <section id="problem">
+        <h2>What was wrong with the old calculator</h2>
+        <div class="prose">
+          <p>The first version took four inputs, rainfall over 48 hours, elevation, drainage and soil type, turned each into points from a lookup table and added them with weights of 40, 30, 20 and 10. It looked reasonable and ran nicely, but three things stopped it working in the real world.</p>
+          <p>Elevation was height above sea level, with anything under 5 m scoring highest. That logic belongs to coastal flooding. All of Zambia lies above about 330 m, so every Zambian location got the lowest elevation score, and the factor with 30% of the weight did nothing. What matters inland is how low a spot sits compared with the ground and streams around it.</p>
+          <p>Rainfall was judged against fixed millimetre thresholds, so 60 mm counted the same in dry Lundazi as in wet Samfya, and the same on parched ground in November as on soaked ground in February.</p>
+          <p>Nothing had been tested. Once elevation is stuck at its minimum, reaching HIGH needs at least 100 mm in 48 hours plus poor drainage and clay soil. Run against the 18 floods in this study, that rule issued HIGH for 3. With moderate drainage and loam it never issued HIGH at all.</p>
+        </div>
+      </section>
+
+      <section id="data">
+        <h2>Data</h2>
+        <div class="tscroll" style="background:var(--surface);border:1px solid var(--line);border-radius:10px">
+          <table>
+            <thead><tr><th>Data</th><th>Used for</th><th>Source</th></tr></thead>
+            <tbody>
+              <tr><td>Rainfall forecast, today and tomorrow, plus the last 32 days</td><td>Live tool</td><td>Open-Meteo forecast API (ECMWF and other weather models)</td></tr>
+              <tr><td>Daily rainfall, 1991 to 2026</td><td>Climate references and backtest</td><td>ERA5 reanalysis through the Open-Meteo archive API</td></tr>
+              <tr><td>Daily river discharge, 1997 to 2026, and 7-day forecast</td><td>River factor</td><td>GloFAS (Copernicus Emergency Management Service) through the Open-Meteo flood API</td></tr>
+              <tr><td>Terrain heights on a 2 km grid around the point</td><td>Exposure</td><td>Copernicus 90 m DEM through the Open-Meteo elevation API</td></tr>
+              <tr><td>18 documented floods at 12 places, 2017 to 2026</td><td>Backtest</td><td>OCHA, IFRC DREF reports, DMMU via FloodList, GDACS, the International Charter and news reports</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="prose">
+          <p>Flood records in Zambia are thin. Reports often give a week rather than a day and a district rather than a village, so each flood has a date window and a point at the district centre or named town. I used windows as reported and let the score peak one day before the first reported date, since rain usually comes before the water.</p>
+        </div>
+      </section>
+
+      <section id="method">
+        <h2>How the score works</h2>
+        <div class="prose">
+          <p>The score asks three questions, each measured against the place’s own climate.</p>
+        </div>
+        <ol class="steps">
+          <li>Rain: how does the 48-hour forecast compare with the largest 2-day fall of a typical year at this place? That reference is the median of the yearly maximum 2-day rainfall from 1991 to 2019, roughly a once-in-two-years fall.</li>
+          <li>Ground wetness: how much rain fell over the previous 30 days, weighting recent days more (each day back counts 90% of the one after)? It is compared with the wettest 10% of rainy-season days at the same place.</li>
+          <li>River: how does the forecast flow at the nearest GloFAS river cell compare with its usual yearly peak? Where the yearly peak is under 1 m³/s there is no real river at the point, and this share follows ground wetness instead.</li>
+        </ol>
+        <div class="prose">
+          <p>Each ratio is capped, at 1.5 for rain and wetness and 2 for the river, so one extreme factor can’t carry the whole score. They are weighted 50, 30 and 20 and scaled to 100. A score of 35 or more is MODERATE and 50 or more is HIGH.</p>
+          <p>I set the weights before running the backtest, on the reasoning that rain is the trigger and the other two set the stage. Afterwards I tried ten other combinations, from 40/20/40 to 70/30/0. The average rank of the flood windows barely moved (0.830 to 0.848 against 0.844 for my choice), so with 18 floods there is no basis for fine-tuning and I kept the simpler, reasoned version.</p>
+          <p>Exposure is applied separately. The live tool reads terrain heights on a grid about 2 km across and works out how far the point sits above the lowest ground nearby; a point within 5 m of it is treated as low-lying. That and the user’s drainage answer multiply the score by between 0.77 and 1.32. This part can’t be tested on the 18 floods, because each place has a single terrain value, so the page shows hazard and exposure side by side.</p>
+        </div>
+      </section>
+
+      <section id="results">
+        <h2>Backtest results</h2>
+        <div class="prose">
+          <p>Fifteen of the 18 floods reached MODERATE or higher within their reported window, and 9 reached HIGH. Outside Lusaka the score caught all 13. The clearest signals came from rural floods driven by big rainfall: Lundazi in December 2025 (107 mm in two days, 2.5 times its 2-year fall, score 93), Lumezi and Mambwe in January 2020 (score 84 and 80) and Chongwe in January 2023, where heavy rain, wet ground and a river at nearly twice its usual peak all lined up (score 84).</p>
+          <p>The Southern Province floods of February 2023 at Monze, Mazabuka and Namwala are the interesting case. Rain on the day was modest, 20 to 29 mm, which the old rule rated LOW unless the user said the drainage was poor. What lifted the score to 43 to 52 was ground that had already been soaked for weeks. Those floods came from the Magoye and Kafue river systems filling up, and the ground-wetness factor is what picked them up.</p>
+          <p>For false alarms, the score went to MODERATE about 5 times a season and to HIGH about twice a season at each place on days with no recorded flood. Some of those will be real floods that never made the news, so the true false-alarm rate is lower than this, but I can’t say by how much. Compared at the same number of floods caught, the old rule with poor drainage and clay soil raised more than twice as many alerts.</p>
+          <p>At very strict thresholds the advantage disappears: a plain rainfall rule set at 50 mm catches 8 floods with about one alert a season, against 5 for the new score at a similar alert rate. The new score earns its place at the watch level, where it catches slow, soaked-ground floods that a rainfall threshold misses.</p>
+        </div>
+      </section>
+
+      <section id="lusaka">
+        <h2>The Lusaka problem</h2>
+        <div class="prose">
+          <p>Lusaka had 5 of the 18 floods and the score caught 2, both at MODERATE. For February 2025, April 2025 and January 2026 the reanalysis shows 7 to 16 mm over two days, nowhere near enough to flood anything, yet roads and homes went under.</p>
+          <p>Two things explain it. City storms are small and short, and a rainfall grid of 9 to 30 km smears an intense 40 mm downpour over Kanyama into a modest average. And in Lusaka the trigger is often the drains rather than the rain: built-over streams, blocked culverts and low-lying informal settlements flood from rainfall that would run off elsewhere. The drainage input and the low-lying terrain adjustment are there for exactly this, but they can only scale a hazard the rainfall data can see. Getting Lusaka right needs city rain gauges or radar and a drainage map, and I would treat any LOW result for Lusaka’s low-lying townships with caution during heavy storms.</p>
+        </div>
+      </section>
+
+      <section id="use">
+        <h2>Using it</h2>
+        <div class="prose">
+          <p>The same scoring code runs in four places. The page above runs it in the browser with live data, which is why it works on GitHub Pages without a server. The Python package runs it from the command line and behind a Flask API, so it could feed an SMS or USSD service for people without smartphones, and the backtest script runs it over 29 years of history.</p>
+        </div>
+        <pre class="tree">python -m floodsense --place Mazabuka --drainage poor
+python app.py        # then GET /api/assess?lat=-15.86&amp;lon=27.75&amp;drainage=poor
+python scripts/backtest.py</pre>
+      </section>
+
+      <section id="limits">
+        <h2>Limitations</h2>
+        <div class="prose">
+          <ul>
+            <li>Eighteen floods is a small sample. The results show the score behaves sensibly; they can’t pin the thresholds down precisely.</li>
+            <li>The backtest uses reanalysis rainfall, which describes what fell. The live tool uses a forecast, which adds forecast error on top.</li>
+            <li>Flood dates and places come from reports that are often vague, and floods that were never reported count as false alarms.</li>
+            <li>GloFAS models large rivers on a 5 km grid. At several places (Mazabuka, Namwala, Lundazi) the cell at the town has no real river, so the river factor falls back to ground wetness, and the real flooding river may be a few kilometres away.</li>
+            <li>The exposure adjustment is judgement-based and untested.</li>
+            <li>The tool doesn’t model dam releases, such as Kariba or Itezhi-Tezhi spilling into the Zambezi and Kafue, or dam failures like Kandesha in 2020.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="code">
+        <h2>The code</h2>
+        <div class="tscroll" style="background:var(--surface);border:1px solid var(--line);border-radius:10px">
+          <table class="code-table">
+            <thead><tr><th>File</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td>floodsense/scoring.py</td><td>Climate references, antecedent index, hazard score, exposure, levels and advice. Pure Python, no dependencies.</td></tr>
+              <tr><td>floodsense/data.py</td><td>Fetches the live forecast, climatology, river flow and terrain for a point.</td></tr>
+              <tr><td>floodsense/__main__.py</td><td>Command-line tool.</td></tr>
+              <tr><td>app.py</td><td>Flask API with /api/assess and /api/places.</td></tr>
+              <tr><td>scripts/fetch_history.py</td><td>Downloads the rainfall, river and terrain history for the 12 backtest places.</td></tr>
+              <tr><td>scripts/backtest.py</td><td>Rebuilds the daily score from 1997 to 2026, scores the old rule too, and writes backtest_results.json.</td></tr>
+              <tr><td>tests/test_scoring.py</td><td>Ten pytest checks on the scoring rules and the backtest output.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="sources">
+        <h2>Sources</h2>
+        <ol class="refs">
+          <li>Hersbach, H. et al. (2020). The ERA5 global reanalysis. <i>Quarterly Journal of the Royal Meteorological Society</i>, 146, 1999-2049.</li>
+          <li>Harrigan, S. et al. (2020). GloFAS-ERA5 operational global river discharge reanalysis 1979 to present. <i>Earth System Science Data</i>, 12, 2043-2060.</li>
+          <li>Kohler, M. A. and Linsley, R. K. (1951). Predicting the runoff from storm rainfall. US Weather Bureau Research Paper 34 (the antecedent precipitation index).</li>
+          <li>Open-Meteo forecast, archive, flood and elevation APIs, open-meteo.com.</li>
+          <li>OCHA, Zambia Floods Flash Update No. 1, 16 January 2020.</li>
+          <li>IFRC, DREF MDRZM013 (Mumbwa, 2020 to 2021) and MDRZM019 (Southern Province, 2023).</li>
+          <li>FloodList reports citing the Disaster Management and Mitigation Unit, 2020 and 2023.</li>
+          <li>GDACS flood event 1103135 (February 2025) and International Charter activation 1009 (December 2025).</li>
+          <li>Lusaka Times (January 2017), Open Zambia (April 2025) and WION (January 2026).</li>
+        </ol>
+      </section>
+    </article>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span><a href="../../index.html">Memory Dube</a>, data analyst, MSc Computer Science (Climate Change)</span>
+    <span>Live data from Open-Meteo, ERA5, GloFAS and the Copernicus DEM. Not an official warning service: follow ZMD and DMMU alerts.</span>
+  </div>
+</footer>
+
+<script type="application/json" id="bt-data">{"settings":{"weights":{"rain":0.5,"wetness":0.3,"river":0.2},"caps":{"rain":1.5,"wetness":1.5,"river":2.0},"moderate":35,"high":50,"test_period":["1997-07-01","2026-06-30"]},"summary":{"n_events":18,"n_places":12,"n_seasons":29,"caught_moderate":15,"caught_high":9,"caught_moderate_outside_lusaka":13,"n_outside_lusaka":13,"caught_moderate_lusaka":2,"n_lusaka":5,"mean_percentile":0.844,"moderate":{"threshold":35,"caught":15,"episodes":5.16,"days":26.9},"high":{"threshold":50,"caught":9,"episodes":1.93,"days":6.7}},"places":[{"id":"lusaka","place":"Lusaka","province":"Lusaka","lat":-15.445,"lon":28.245,"rl2":55.9,"api90":92.5,"q2":7.38,"rel_height":2.0,"mean_annual":905.0,"alert_days_moderate":18.8,"alert_days_high":3.7},{"id":"mambwe","place":"Mambwe","province":"Eastern","lat":-13.1,"lon":31.8,"rl2":54.6,"api90":93.7,"q2":1.56,"rel_height":7.0,"mean_annual":951.0,"alert_days_moderate":19.6,"alert_days_high":5.5},{"id":"lumezi","place":"Lumezi","province":"Eastern","lat":-12.98,"lon":32.7,"rl2":48.1,"api90":100.5,"q2":22.99,"rel_height":27.0,"mean_annual":972.0,"alert_days_moderate":25.3,"alert_days_high":6.2},{"id":"gwembe","place":"Gwembe","province":"Southern","lat":-16.62,"lon":27.73,"rl2":75.5,"api90":118.8,"q2":14.07,"rel_height":146.0,"mean_annual":1151.0,"alert_days_moderate":22.2,"alert_days_high":4.8},{"id":"samfya","place":"Samfya","province":"Luapula","lat":-11.36,"lon":29.55,"rl2":53.9,"api90":109.6,"q2":22.07,"rel_height":3.0,"mean_annual":1219.0,"alert_days_moderate":36.3,"alert_days_high":6.8},{"id":"mumbwa","place":"Mumbwa","province":"Central","lat":-14.98,"lon":27.06,"rl2":58.6,"api90":104.4,"q2":1.65,"rel_height":28.0,"mean_annual":1016.0,"alert_days_moderate":26.8,"alert_days_high":3.5},{"id":"lusangazi","place":"Lusangazi","province":"Eastern","lat":-14.1,"lon":31.4,"rl2":49.2,"api90":95.7,"q2":13.19,"rel_height":13.0,"mean_annual":889.0,"alert_days_moderate":21.3,"alert_days_high":4.2},{"id":"chongwe","place":"Chongwe","province":"Lusaka","lat":-15.33,"lon":28.68,"rl2":54.6,"api90":82.2,"q2":29.55,"rel_height":56.0,"mean_annual":766.0,"alert_days_moderate":19.3,"alert_days_high":5.1},{"id":"monze","place":"Monze","province":"Southern","lat":-16.28,"lon":27.48,"rl2":58.9,"api90":89.8,"q2":2.55,"rel_height":21.0,"mean_annual":871.0,"alert_days_moderate":18.2,"alert_days_high":4.3},{"id":"mazabuka","place":"Mazabuka","province":"Southern","lat":-15.86,"lon":27.75,"rl2":51.9,"api90":79.5,"q2":0.09,"rel_height":18.0,"mean_annual":705.0,"alert_days_moderate":34.1,"alert_days_high":11.1},{"id":"namwala","place":"Namwala","province":"Southern","lat":-15.75,"lon":26.44,"rl2":52.0,"api90":93.0,"q2":0.34,"rel_height":15.0,"mean_annual":799.0,"alert_days_moderate":37.8,"alert_days_high":12.6},{"id":"lundazi","place":"Lundazi","province":"Eastern","lat":-12.29,"lon":33.18,"rl2":43.5,"api90":75.3,"q2":0.28,"rel_height":32.0,"mean_annual":675.0,"alert_days_moderate":43.6,"alert_days_high":12.7}],"events":[{"id":"E01","location":"lusaka","place":"Lusaka CBD Chibolya and Kanyama","district":"Lusaka","province":"Lusaka","start":"2017-01-01","end":"2017-01-03","type":"flash","source":"Lusaka Times, 4 Jan 2017: three days of heavy rain, worst on Tuesday 3 Jan","peak_date":"2017-01-03","rain_48h":30.5,"rain_ratio":0.55,"antecedent":79.4,"wet_ratio":0.86,"river_ratio":0.36,"score":39.0,"level":"MODERATE","old_score_poor_clay":39.5,"old_score_moderate_loam":25.5,"percentile":0.87,"series":{"dates":["2016-12-02","2016-12-03","2016-12-04","2016-12-05","2016-12-06","2016-12-07","2016-12-08","2016-12-09","2016-12-10","2016-12-11","2016-12-12","2016-12-13","2016-12-14","2016-12-15","2016-12-16","2016-12-17","2016-12-18","2016-12-19","2016-12-20","2016-12-21","2016-12-22","2016-12-23","2016-12-24","2016-12-25","2016-12-26","2016-12-27","2016-12-28","2016-12-29","2016-12-30","2016-12-31","2017-01-01","2017-01-02","2017-01-03","2017-01-04","2017-01-05","2017-01-06","2017-01-07","2017-01-08","2017-01-09","2017-01-10","2017-01-11","2017-01-12","2017-01-13","2017-01-14","2017-01-15","2017-01-16","2017-01-17","2017-01-18"],"score":[16.3,13.8,12.6,17.8,25.4,22.2,18.9,19.4,18.8,22.5,21.7,27.9,33.6,32.7,25.8,28.0,37.6,36.7,30.5,27.3,24.8,23.4,19.5,17.2,25.4,26.9,27.5,34.8,36.4,30.8,28.9,35.4,39.0,36.7,35.9,34.5,30.2,26.8,28.8,28.7,31.6,35.8,35.2,33.5,35.3,37.3,50.8,57.2],"rain":[0.0,0.2,0.5,7.2,13.4,0.8,7.1,3.3,6.2,9.2,4.6,15.3,12.5,10.4,4.0,10.5,17.7,7.7,7.5,3.1,5.0,2.6,1.0,1.6,13.2,6.0,11.1,18.5,12.1,5.2,7.6,17.3,13.2,10.0,10.3,7.5,3.8,3.9,5.6,4.5,11.3,12.9,9.0,8.5,13.5,8.2,28.4,19.4]}},{"id":"E02","location":"lusaka","place":"Lusaka (hospital flooded)","district":"Lusaka","province":"Lusaka","start":"2020-01-01","end":"2020-01-14","type":"flash","source":"OCHA Zambia Floods Flash Update No. 1, 16 Jan 2020","peak_date":"2020-01-14","rain_48h":34.7,"rain_ratio":0.62,"antecedent":58.1,"wet_ratio":0.63,"river_ratio":0.33,"score":36.6,"level":"MODERATE","old_score_poor_clay":39.5,"old_score_moderate_loam":25.5,"percentile":0.68,"series":{"dates":["2019-12-02","2019-12-03","2019-12-04","2019-12-05","2019-12-06","2019-12-07","2019-12-08","2019-12-09","2019-12-10","2019-12-11","2019-12-12","2019-12-13","2019-12-14","2019-12-15","2019-12-16","2019-12-17","2019-12-18","2019-12-19","2019-12-20","2019-12-21","2019-12-22","2019-12-23","2019-12-24","2019-12-25","2019-12-26","2019-12-27","2019-12-28","2019-12-29","2019-12-30","2019-12-31","2020-01-01","2020-01-02","2020-01-03","2020-01-04","2020-01-05","2020-01-06","2020-01-07","2020-01-08","2020-01-09","2020-01-10","2020-01-11","2020-01-12","2020-01-13","2020-01-14","2020-01-15","2020-01-16","2020-01-17","2020-01-18","2020-01-19","2020-01-20","2020-01-21","2020-01-22","2020-01-23","2020-01-24","2020-01-25","2020-01-26","2020-01-27","2020-01-28","2020-01-29"],"score":[7.8,6.9,5.4,7.2,7.1,7.7,12.1,22.4,29.3,22.2,17.7,19.8,25.3,21.2,14.5,12.6,11.0,9.5,8.5,7.9,7.1,6.2,5.5,5.8,5.3,4.8,8.6,9.3,6.5,11.5,15.9,13.3,15.6,14.4,15.2,16.9,16.7,17.7,23.1,22.8,30.6,28.9,29.4,36.6,66.1,67.2,51.2,54.6,46.9,36.2,40.2,36.6,27.5,23.7,21.4,19.2,17.1,19.5,19.3],"rain":[2.4,0.1,0.0,3.7,0.6,3.5,7.6,11.6,17.3,2.3,5.5,8.4,12.3,0.4,0.3,0.9,0.0,0.0,0.0,0.5,0.1,0.0,0.0,1.5,0.0,0.3,4.9,2.1,0.6,10.6,8.3,3.0,9.1,1.1,6.6,5.0,4.1,6.3,12.4,2.3,22.7,1.1,18.8,15.9,60.7,14.6,16.1,13.3,2.2,4.5,12.6,1.3,0.0,0.1,0.5,0.0,0.0,5.9,2.4]}},{"id":"E03","location":"mambwe","place":"Malambo constituency","district":"Mambwe","province":"Eastern","start":"2020-01-01","end":"2020-01-07","type":"riverine","source":"OCHA Flash Update No. 1, 16 Jan 2020: first week of January","peak_date":"2020-01-02","rain_48h":94.4,"rain_ratio":1.73,"antecedent":145.9,"wet_ratio":1.56,"river_ratio":0.0,"score":80.0,"level":"HIGH","old_score_poor_clay":63.5,"old_score_moderate_loam":49.5,"percentile":0.993,"series":{"dates":["2019-12-02","2019-12-03","2019-12-04","2019-12-05","2019-12-06","2019-12-07","2019-12-08","2019-12-09","2019-12-10","2019-12-11","2019-12-12","2019-12-13","2019-12-14","2019-12-15","2019-12-16","2019-12-17","2019-12-18","2019-12-19","2019-12-20","2019-12-21","2019-12-22","2019-12-23","2019-12-24","2019-12-25","2019-12-26","2019-12-27","2019-12-28","2019-12-29","2019-12-30","2019-12-31","2020-01-01","2020-01-02","2020-01-03","2020-01-04","2020-01-05","2020-01-06","2020-01-07","2020-01-08","2020-01-09","2020-01-10","2020-01-11","2020-01-12","2020-01-13","2020-01-14","2020-01-15","2020-01-16","2020-01-17","2020-01-18","2020-01-19","2020-01-20","2020-01-21","2020-01-22"],"score":[19.7,15.9,14.0,17.3,17.6,14.8,15.9,14.8,20.3,21.8,17.9,19.4,20.7,16.4,14.9,15.2,13.0,11.2,12.2,12.3,11.6,23.4,21.9,15.5,16.4,15.0,31.1,42.2,50.4,67.4,74.0,80.0,53.4,40.2,37.1,38.1,39.6,37.9,37.8,41.5,52.2,53.6,41.2,39.0,49.6,48.4,39.8,43.7,41.1,37.2,45.9,50.4],"rain":[1.6,0.1,0.4,7.8,2.7,2.3,5.6,1.4,14.4,5.2,4.5,7.9,6.9,0.0,4.0,2.6,0.9,0.6,3.9,2.1,2.8,22.2,0.6,5.4,3.8,3.2,30.8,22.2,35.3,45.0,69.0,25.4,13.0,3.7,8.0,5.3,10.5,2.5,10.3,8.6,29.2,12.5,5.5,9.0,24.7,7.2,2.9,10.0,2.0,4.6,18.7,0.3]}},{"id":"E04","location":"lumezi","place":"Lumezi","district":"Lumezi","province":"Eastern","start":"2020-01-01","end":"2020-01-10","type":"flash","source":"OCHA Flash Update No. 1, 16 Jan 2020: early January","peak_date":"2020-01-02","rain_48h":85.6,"rain_ratio":1.78,"antecedent":201.9,"wet_ratio":2.01,"river_ratio":0.4,"score":84.0,"level":"HIGH","old_score_poor_clay":63.5,"old_score_moderate_loam":49.5,"percentile":1.0,"series":{"dates":["2019-12-02","2019-12-03","2019-12-04","2019-12-05","2019-12-06","2019-12-07","2019-12-08","2019-12-09","2019-12-10","2019-12-11","2019-12-12","2019-12-13","2019-12-14","2019-12-15","2019-12-16","2019-12-17","2019-12-18","2019-12-19","2019-12-20","2019-12-21","2019-12-22","2019-12-23","2019-12-24","2019-12-25","2019-12-26","2019-12-27","2019-12-28","2019-12-29","2019-12-30","2019-12-31","2020-01-01","2020-01-02","2020-01-03","2020-01-04","2020-01-05","2020-01-06","2020-01-07","2020-01-08","2020-01-09","2020-01-10","2020-01-11","2020-01-12","2020-01-13","2020-01-14","2020-01-15","2020-01-16","2020-01-17","2020-01-18","2020-01-19","2020-01-20","2020-01-21","2020-01-22","2020-01-23","2020-01-24","2020-01-25"],"score":[10.5,8.8,9.3,11.4,11.9,14.9,15.7,16.0,25.0,24.5,17.3,16.3,15.0,14.7,19.1,16.1,11.1,10.5,9.9,13.1,12.0,12.0,17.2,21.3,26.0,27.2,50.8,58.1,69.4,74.4,83.1,84.0,54.4,46.5,52.7,55.0,54.5,50.2,45.4,51.8,58.8,62.4,54.6,51.0,69.4,65.5,47.6,54.1,52.3,43.6,46.0,43.2,34.3,30.9,26.9],"rain":[2.5,0.1,3.5,4.1,4.1,8.2,4.9,7.1,17.5,5.3,3.2,3.9,1.9,3.9,9.2,0.0,0.8,0.7,1.1,6.4,0.4,5.5,9.0,10.8,14.3,10.7,45.6,19.3,49.8,68.0,67.2,18.4,8.3,6.8,17.2,10.1,16.5,3.8,9.5,12.4,19.5,15.0,6.0,8.7,30.5,2.7,3.6,13.4,4.8,1.6,13.3,0.2,0.0,0.0,0.4]}},{"id":"E05","location":"gwembe","place":"Munyumbwe","district":"Gwembe","province":"Southern","start":"2020-01-10","end":"2020-01-16","type":"flash","source":"OCHA Flash Update No. 1, 16 Jan 2020: heavy rain in recent days","peak_date":"2020-01-16","rain_48h":57.7,"rain_ratio":0.76,"antecedent":88.5,"wet_ratio":0.75,"river_ratio":0.06,"score":41.0,"level":"MODERATE","old_score_poor_clay":47.5,"old_score_moderate_loam":33.5,"percentile":0.854,"series":{"dates":["2019-12-11","2019-12-12","2019-12-13","2019-12-14","2019-12-15","2019-12-16","2019-12-17","2019-12-18","2019-12-19","2019-12-20","2019-12-21","2019-12-22","2019-12-23","2019-12-24","2019-12-25","2019-12-26","2019-12-27","2019-12-28","2019-12-29","2019-12-30","2019-12-31","2020-01-01","2020-01-02","2020-01-03","2020-01-04","2020-01-05","2020-01-06","2020-01-07","2020-01-08","2020-01-09","2020-01-10","2020-01-11","2020-01-12","2020-01-13","2020-01-14","2020-01-15","2020-01-16","2020-01-17","2020-01-18","2020-01-19","2020-01-20","2020-01-21","2020-01-22","2020-01-23","2020-01-24","2020-01-25","2020-01-26","2020-01-27","2020-01-28","2020-01-29","2020-01-30","2020-01-31"],"score":[18.1,12.1,12.5,12.1,9.9,8.8,9.8,8.9,7.0,6.4,5.7,5.0,4.5,4.1,3.6,3.2,3.0,4.0,5.9,5.7,4.1,3.8,3.6,4.4,4.5,3.6,5.0,4.7,4.9,12.4,13.5,20.3,22.9,20.0,28.2,35.3,41.0,52.3,46.2,32.3,31.4,29.0,24.8,22.3,19.5,17.5,15.8,14.2,15.9,14.6,13.5,16.6],"rain":[0.5,1.0,3.9,2.0,0.3,0.6,4.5,0.0,0.0,0.3,0.0,0.0,0.1,0.0,0.0,0.0,0.1,2.9,5.0,1.9,0.1,1.1,0.3,3.2,1.2,0.4,4.7,0.2,3.9,17.6,5.8,26.9,10.6,11.3,27.7,25.4,32.3,44.9,10.1,1.2,10.3,1.2,2.3,0.4,0.0,0.3,0.2,0.0,7.2,0.0,4.5,9.7]}},{"id":"E06","location":"samfya","place":"Samfya","district":"Samfya","province":"Luapula","start":"2020-03-15","end":"2020-03-22","type":"riverine","source":"DMMU statement 22 Mar 2020 via FloodList","peak_date":"2020-03-17","rain_48h":63.2,"rain_ratio":1.17,"antecedent":114.0,"wet_ratio":1.04,"river_ratio":1.41,"score":74.0,"level":"HIGH","old_score_poor_clay":55.5,"old_score_moderate_loam":41.5,"percentile":0.994,"series":{"dates":["2020-02-14","2020-02-15","2020-02-16","2020-02-17","2020-02-18","2020-02-19","2020-02-20","2020-02-21","2020-02-22","2020-02-23","2020-02-24","2020-02-25","2020-02-26","2020-02-27","2020-02-28","2020-02-29","2020-03-01","2020-03-02","2020-03-03","2020-03-04","2020-03-05","2020-03-06","2020-03-07","2020-03-08","2020-03-09","2020-03-10","2020-03-11","2020-03-12","2020-03-13","2020-03-14","2020-03-15","2020-03-16","2020-03-17","2020-03-18","2020-03-19","2020-03-20","2020-03-21","2020-03-22","2020-03-23","2020-03-24","2020-03-25","2020-03-26","2020-03-27","2020-03-28","2020-03-29","2020-03-30","2020-03-31","2020-04-01","2020-04-02","2020-04-03","2020-04-04","2020-04-05","2020-04-06"],"score":[42.7,40.3,39.9,36.1,37.3,36.8,33.5,29.4,24.5,23.5,30.5,30.5,25.5,31.6,40.3,36.9,30.1,31.0,41.7,50.6,41.0,31.1,27.7,24.8,29.1,31.7,31.0,35.7,40.9,49.4,54.0,60.0,74.0,69.1,65.8,64.9,68.1,64.3,52.3,45.4,38.5,38.1,37.0,33.5,32.1,31.0,28.5,24.4,21.3,19.2,17.1,15.4,14.2],"rain":[5.2,9.0,6.2,4.2,10.3,5.4,5.6,0.9,0.3,3.0,15.2,2.8,3.2,13.1,17.7,5.6,4.4,8.4,19.7,19.7,0.7,1.1,0.2,1.5,11.4,9.1,8.1,15.6,15.8,26.3,20.8,28.6,34.6,12.2,22.6,11.8,26.2,8.2,5.5,2.0,0.0,7.5,4.2,4.1,4.5,4.8,3.0,0.2,0.5,0.0,0.0,0.0,0.2]}},{"id":"E07","location":"mumbwa","place":"Mapona ward (Kandesha dam)","district":"Mumbwa","province":"Central","start":"2020-12-22","end":"2020-12-26","type":"dam failure after rain","source":"IFRC DREF MDRZM013: heavy rain 22 to 26 Dec 2020 burst Kandesha dam","peak_date":"2020-12-26","rain_48h":56.2,"rain_ratio":0.96,"antecedent":86.5,"wet_ratio":0.83,"river_ratio":0.27,"score":51.3,"level":"HIGH","old_score_poor_clay":47.5,"old_score_moderate_loam":33.5,"percentile":0.953,"series":{"dates":["2020-11-22","2020-11-23","2020-11-24","2020-11-25","2020-11-26","2020-11-27","2020-11-28","2020-11-29","2020-11-30","2020-12-01","2020-12-02","2020-12-03","2020-12-04","2020-12-05","2020-12-06","2020-12-07","2020-12-08","2020-12-09","2020-12-10","2020-12-11","2020-12-12","2020-12-13","2020-12-14","2020-12-15","2020-12-16","2020-12-17","2020-12-18","2020-12-19","2020-12-20","2020-12-21","2020-12-22","2020-12-23","2020-12-24","2020-12-25","2020-12-26","2020-12-27","2020-12-28","2020-12-29","2020-12-30","2020-12-31","2021-01-01","2021-01-02","2021-01-03","2021-01-04","2021-01-05","2021-01-06","2021-01-07","2021-01-08","2021-01-09","2021-01-10"],"score":[12.2,10.9,12.6,11.8,9.8,9.6,12.8,13.7,18.9,23.3,25.7,30.3,26.8,28.5,31.8,26.2,30.6,30.8,31.0,30.9,24.8,27.9,38.6,39.0,40.0,45.5,41.6,32.0,26.4,28.7,27.6,23.8,28.4,42.6,51.3,42.0,32.9,33.4,31.2,31.9,31.4,32.4,31.0,29.8,31.4,30.6,29.4,28.5,29.6,30.4],"rain":[2.3,2.7,5.4,1.3,1.1,1.5,7.4,3.4,15.0,11.0,15.0,16.8,5.5,16.1,11.9,3.0,18.4,5.1,15.1,6.2,2.2,12.6,23.5,11.8,20.2,20.9,10.0,0.7,1.0,8.6,2.3,2.5,12.7,29.6,26.6,6.3,5.2,9.3,3.6,11.1,5.2,12.5,4.6,9.6,9.2,8.3,7.3,6.9,9.6,8.8]}},{"id":"E08","location":"mumbwa","place":"Muchabi and 18 villages","district":"Mumbwa","province":"Central","start":"2021-02-08","end":"2021-02-10","type":"flash","source":"IFRC DREF MDRZM013: flooding on 10 Feb 2021","peak_date":"2021-02-10","rain_48h":34.1,"rain_ratio":0.58,"antecedent":81.8,"wet_ratio":0.78,"river_ratio":1.06,"score":45.7,"level":"MODERATE","old_score_poor_clay":39.5,"old_score_moderate_loam":25.5,"percentile":0.936,"series":{"dates":["2021-01-09","2021-01-10","2021-01-11","2021-01-12","2021-01-13","2021-01-14","2021-01-15","2021-01-16","2021-01-17","2021-01-18","2021-01-19","2021-01-20","2021-01-21","2021-01-22","2021-01-23","2021-01-24","2021-01-25","2021-01-26","2021-01-27","2021-01-28","2021-01-29","2021-01-30","2021-01-31","2021-02-01","2021-02-02","2021-02-03","2021-02-04","2021-02-05","2021-02-06","2021-02-07","2021-02-08","2021-02-09","2021-02-10","2021-02-11","2021-02-12","2021-02-13","2021-02-14","2021-02-15","2021-02-16","2021-02-17","2021-02-18","2021-02-19","2021-02-20","2021-02-21","2021-02-22","2021-02-23","2021-02-24","2021-02-25"],"score":[29.6,30.4,31.6,32.1,35.5,35.2,28.7,24.7,25.8,33.9,38.6,34.8,32.7,33.2,30.5,28.5,64.2,72.3,50.5,44.6,38.9,33.9,38.5,36.2,34.7,37.3,32.1,27.6,29.7,35.1,37.1,36.6,45.7,52.5,44.0,38.2,34.7,29.8,32.9,32.5,30.2,33.3,41.7,39.0,30.0,27.3,27.4,32.5],"rain":[9.6,8.8,11.2,9.0,15.5,7.1,1.1,0.9,6.2,18.2,14.0,6.7,7.8,6.9,2.2,3.9,66.6,18.4,7.7,6.2,0.1,0.0,13.1,0.4,9.8,8.5,0.2,0.9,7.6,13.3,10.8,9.5,24.6,20.6,3.5,7.0,0.0,0.0,9.1,2.9,4.6,10.4,20.5,4.7,0.3,1.7,3.4,13.1]}},{"id":"E09","location":"lusangazi","place":"Msanzala","district":"Lusangazi","province":"Eastern","start":"2023-01-14","end":"2023-01-16","type":"flash","source":"FloodList 30 Jan 2023 citing DMMU: 16 Jan 2023","peak_date":"2023-01-13","rain_48h":62.7,"rain_ratio":1.27,"antecedent":71.4,"wet_ratio":0.75,"river_ratio":0.09,"score":58.3,"level":"HIGH","old_score_poor_clay":55.5,"old_score_moderate_loam":41.5,"percentile":0.98,"series":{"dates":["2022-12-15","2022-12-16","2022-12-17","2022-12-18","2022-12-19","2022-12-20","2022-12-21","2022-12-22","2022-12-23","2022-12-24","2022-12-25","2022-12-26","2022-12-27","2022-12-28","2022-12-29","2022-12-30","2022-12-31","2023-01-01","2023-01-02","2023-01-03","2023-01-04","2023-01-05","2023-01-06","2023-01-07","2023-01-08","2023-01-09","2023-01-10","2023-01-11","2023-01-12","2023-01-13","2023-01-14","2023-01-15","2023-01-16","2023-01-17","2023-01-18","2023-01-19","2023-01-20","2023-01-21","2023-01-22","2023-01-23","2023-01-24","2023-01-25","2023-01-26","2023-01-27","2023-01-28","2023-01-29","2023-01-30","2023-01-31"],"score":[18.0,13.6,10.3,13.6,15.1,22.2,24.9,34.3,35.6,28.2,27.1,25.7,22.4,27.3,39.2,35.1,31.2,26.9,21.0,18.9,17.9,18.0,20.4,24.9,31.9,33.9,24.4,22.1,44.2,58.3,44.3,39.9,38.4,33.2,32.7,34.6,36.9,44.6,54.2,54.5,44.8,55.4,60.8,50.6,50.2,45.3,37.9,36.5],"rain":[5.6,0.7,0.4,6.7,3.8,16.2,7.5,26.0,8.1,8.7,6.5,6.8,2.3,14.4,21.7,5.8,11.4,0.4,2.0,0.1,2.5,2.8,7.4,10.3,17.4,11.9,0.6,7.1,35.3,27.4,5.3,14.9,4.4,4.9,5.0,8.8,9.0,18.9,22.9,16.4,3.4,30.3,9.1,8.9,9.8,4.5,0.5,4.5]}},{"id":"E10","location":"mumbwa","place":"Mumbwa bridge and crossings","district":"Mumbwa","province":"Central","start":"2023-01-15","end":"2023-01-17","type":"flash","source":"FloodList 30 Jan 2023 citing DMMU: 17 Jan 2023","peak_date":"2023-01-16","rain_48h":33.2,"rain_ratio":0.57,"antecedent":73.4,"wet_ratio":0.7,"river_ratio":0.9,"score":41.9,"level":"MODERATE","old_score_poor_clay":39.5,"old_score_moderate_loam":25.5,"percentile":0.885,"series":{"dates":["2022-12-16","2022-12-17","2022-12-18","2022-12-19","2022-12-20","2022-12-21","2022-12-22","2022-12-23","2022-12-24","2022-12-25","2022-12-26","2022-12-27","2022-12-28","2022-12-29","2022-12-30","2022-12-31","2023-01-01","2023-01-02","2023-01-03","2023-01-04","2023-01-05","2023-01-06","2023-01-07","2023-01-08","2023-01-09","2023-01-10","2023-01-11","2023-01-12","2023-01-13","2023-01-14","2023-01-15","2023-01-16","2023-01-17","2023-01-18","2023-01-19","2023-01-20","2023-01-21","2023-01-22","2023-01-23","2023-01-24","2023-01-25","2023-01-26","2023-01-27","2023-01-28","2023-01-29","2023-01-30","2023-01-31","2023-02-01"],"score":[22.4,21.8,18.0,30.9,32.1,21.7,25.2,23.9,20.3,20.4,17.7,15.5,14.2,15.7,18.8,19.8,20.9,39.2,36.4,22.8,23.1,25.3,25.5,27.7,32.4,36.7,34.7,31.7,30.9,28.8,35.3,41.9,38.2,34.4,31.7,46.7,50.7,44.9,41.5,38.3,50.8,56.1,48.1,42.8,38.1,36.5,36.1,43.3],"rain":[12.7,1.6,3.7,25.9,6.5,0.6,13.1,0.5,4.7,3.1,0.6,0.4,0.2,5.0,7.4,6.6,8.3,37.8,1.6,2.8,4.4,8.2,5.3,11.4,12.9,16.7,6.3,7.6,4.1,3.0,17.0,16.2,6.4,6.1,2.6,32.4,10.7,11.2,2.5,5.2,27.2,16.4,7.4,5.2,0.2,4.3,3.7,19.4]}},{"id":"E11","location":"chongwe","place":"Chongwe","district":"Chongwe","province":"Lusaka","start":"2023-01-14","end":"2023-01-25","type":"flash","source":"FloodList 30 Jan 2023: mid to late January","peak_date":"2023-01-22","rain_48h":62.9,"rain_ratio":1.15,"antecedent":107.2,"wet_ratio":1.3,"river_ratio":1.92,"score":83.7,"level":"HIGH","old_score_poor_clay":55.5,"old_score_moderate_loam":41.5,"percentile":0.994,"series":{"dates":["2022-12-15","2022-12-16","2022-12-17","2022-12-18","2022-12-19","2022-12-20","2022-12-21","2022-12-22","2022-12-23","2022-12-24","2022-12-25","2022-12-26","2022-12-27","2022-12-28","2022-12-29","2022-12-30","2022-12-31","2023-01-01","2023-01-02","2023-01-03","2023-01-04","2023-01-05","2023-01-06","2023-01-07","2023-01-08","2023-01-09","2023-01-10","2023-01-11","2023-01-12","2023-01-13","2023-01-14","2023-01-15","2023-01-16","2023-01-17","2023-01-18","2023-01-19","2023-01-20","2023-01-21","2023-01-22","2023-01-23","2023-01-24","2023-01-25","2023-01-26","2023-01-27","2023-01-28","2023-01-29","2023-01-30","2023-01-31","2023-02-01","2023-02-02","2023-02-03","2023-02-04","2023-02-05","2023-02-06","2023-02-07","2023-02-08","2023-02-09"],"score":[17.0,16.4,18.1,27.9,37.2,34.3,29.1,34.6,33.6,28.8,27.7,24.9,20.8,18.8,22.2,26.5,28.2,26.4,32.0,30.6,27.2,26.0,38.1,54.2,54.2,60.5,55.6,51.9,52.8,50.5,43.8,42.4,40.5,40.0,43.2,48.1,51.0,64.3,83.7,73.5,52.6,66.6,83.7,78.0,66.2,55.3,54.4,56.1,54.1,58.4,54.1,46.9,45.8,47.0,44.1,43.6,48.4],"rain":[1.0,3.4,5.2,19.6,19.2,8.6,5.6,17.0,1.8,5.1,4.4,5.1,0.0,3.0,8.6,11.8,4.9,6.1,14.6,4.4,5.7,5.6,24.7,28.8,13.9,16.4,4.6,11.4,18.5,9.0,5.4,9.7,5.4,9.3,12.0,16.9,12.2,25.0,37.9,3.0,3.1,27.3,27.9,18.0,8.5,0.2,7.0,3.0,5.1,14.0,1.7,3.0,6.3,10.2,4.2,9.7,15.5]}},{"id":"E12","location":"monze","place":"Monze","district":"Monze","province":"Southern","start":"2023-02-05","end":"2023-02-09","type":"riverine","source":"IFRC DREF MDRZM019: flooding began 7 Feb 2023 in Namwala, Monze and Mazabuka","peak_date":"2023-02-06","rain_48h":20.2,"rain_ratio":0.34,"antecedent":98.9,"wet_ratio":1.1,"river_ratio":0.9,"score":42.5,"level":"MODERATE","old_score_poor_clay":39.5,"old_score_moderate_loam":25.5,"percentile":0.904,"series":{"dates":["2023-01-06","2023-01-07","2023-01-08","2023-01-09","2023-01-10","2023-01-11","2023-01-12","2023-01-13","2023-01-14","2023-01-15","2023-01-16","2023-01-17","2023-01-18","2023-01-19","2023-01-20","2023-01-21","2023-01-22","2023-01-23","2023-01-24","2023-01-25","2023-01-26","2023-01-27","2023-01-28","2023-01-29","2023-01-30","2023-01-31","2023-02-01","2023-02-02","2023-02-03","2023-02-04","2023-02-05","2023-02-06","2023-02-07","2023-02-08","2023-02-09","2023-02-10","2023-02-11","2023-02-12","2023-02-13","2023-02-14","2023-02-15","2023-02-16","2023-02-17","2023-02-18","2023-02-19","2023-02-20","2023-02-21","2023-02-22","2023-02-23","2023-02-24"],"score":[17.9,18.2,50.2,64.9,46.1,43.0,49.7,49.7,44.7,45.5,44.6,43.8,44.5,46.6,59.9,58.9,67.7,66.7,48.7,61.9,81.6,76.8,64.9,52.6,48.4,49.6,50.3,49.1,41.5,36.9,38.2,42.5,39.0,33.4,34.5,40.7,35.9,27.9,25.1,22.6,26.4,36.8,43.8,36.9,27.4,28.0,25.8,27.9,28.9,24.4],"rain":[2.1,3.5,59.8,28.6,4.9,17.7,19.7,14.8,7.7,13.9,8.1,12.4,9.9,9.5,27.2,6.9,36.7,13.2,3.7,24.4,31.4,16.0,15.4,0.0,12.5,3.9,13.4,2.8,0.6,0.6,7.8,12.4,2.5,1.8,9.6,16.1,0.5,0.6,0.1,0.3,6.4,19.5,16.1,2.2,0.0,8.3,0.9,10.7,5.6,1.5]}},{"id":"E13","location":"mazabuka","place":"Mazabuka","district":"Mazabuka","province":"Southern","start":"2023-02-05","end":"2023-02-09","type":"riverine","source":"IFRC DREF MDRZM019: flooding began 7 Feb 2023","peak_date":"2023-02-06","rain_48h":24.5,"rain_ratio":0.47,"antecedent":84.3,"wet_ratio":1.06,"river_ratio":null,"score":51.1,"level":"HIGH","old_score_poor_clay":39.5,"old_score_moderate_loam":25.5,"percentile":0.896,"series":{"dates":["2023-01-06","2023-01-07","2023-01-08","2023-01-09","2023-01-10","2023-01-11","2023-01-12","2023-01-13","2023-01-14","2023-01-15","2023-01-16","2023-01-17","2023-01-18","2023-01-19","2023-01-20","2023-01-21","2023-01-22","2023-01-23","2023-01-24","2023-01-25","2023-01-26","2023-01-27","2023-01-28","2023-01-29","2023-01-30","2023-01-31","2023-02-01","2023-02-02","2023-02-03","2023-02-04","2023-02-05","2023-02-06","2023-02-07","2023-02-08","2023-02-09","2023-02-10","2023-02-11","2023-02-12","2023-02-13","2023-02-14","2023-02-15","2023-02-16","2023-02-17","2023-02-18","2023-02-19","2023-02-20","2023-02-21","2023-02-22","2023-02-23","2023-02-24"],"score":[29.9,40.5,73.1,79.3,73.4,56.6,58.6,59.4,55.8,51.2,47.6,52.6,53.3,57.3,64.4,68.3,83.1,85.5,65.7,67.1,84.3,78.3,60.1,53.1,55.0,56.6,53.3,54.8,49.4,44.0,48.1,51.1,45.7,45.1,49.0,50.9,46.0,39.7,35.1,31.5,34.1,44.1,47.0,40.2,34.3,31.2,28.5,29.0,26.1,23.0],"rain":[8.0,20.7,58.9,28.4,8.1,2.2,11.2,3.5,5.5,2.2,3.6,15.4,8.7,17.6,20.6,18.3,37.1,18.1,6.4,20.3,33.1,10.9,4.9,0.0,7.8,2.4,2.8,6.6,0.9,0.8,13.5,11.0,2.0,9.2,14.4,12.1,2.9,0.1,0.0,0.1,9.0,20.1,11.7,1.0,0.0,1.3,1.1,5.9,0.8,1.1]}},{"id":"E14","location":"namwala","place":"Namwala","district":"Namwala","province":"Southern","start":"2023-02-05","end":"2023-02-09","type":"riverine","source":"IFRC DREF MDRZM019: flooding began 7 Feb 2023","peak_date":"2023-02-08","rain_48h":29.4,"rain_ratio":0.57,"antecedent":91.3,"wet_ratio":0.98,"river_ratio":null,"score":51.6,"level":"HIGH","old_score_poor_clay":39.5,"old_score_moderate_loam":25.5,"percentile":0.879,"series":{"dates":["2023-01-06","2023-01-07","2023-01-08","2023-01-09","2023-01-10","2023-01-11","2023-01-12","2023-01-13","2023-01-14","2023-01-15","2023-01-16","2023-01-17","2023-01-18","2023-01-19","2023-01-20","2023-01-21","2023-01-22","2023-01-23","2023-01-24","2023-01-25","2023-01-26","2023-01-27","2023-01-28","2023-01-29","2023-01-30","2023-01-31","2023-02-01","2023-02-02","2023-02-03","2023-02-04","2023-02-05","2023-02-06","2023-02-07","2023-02-08","2023-02-09","2023-02-10","2023-02-11","2023-02-12","2023-02-13","2023-02-14","2023-02-15","2023-02-16","2023-02-17","2023-02-18","2023-02-19","2023-02-20","2023-02-21","2023-02-22","2023-02-23","2023-02-24"],"score":[39.5,40.3,53.4,67.5,58.6,50.4,50.7,54.1,49.5,47.1,47.4,45.0,52.4,60.3,66.2,69.0,84.4,79.5,60.5,63.9,73.7,67.4,58.4,61.3,55.4,51.0,54.5,53.2,45.6,43.9,49.9,44.8,41.6,51.6,48.2,40.4,36.0,31.6,28.2,25.2,32.3,40.5,42.8,35.7,28.8,30.6,27.9,30.6,28.8,26.0],"rain":[10.7,10.0,29.7,31.1,4.1,6.7,9.3,14.6,3.0,8.8,7.9,6.0,20.6,20.8,24.0,19.5,41.0,8.4,8.0,13.7,23.2,3.9,9.2,8.4,1.5,4.9,13.6,7.0,0.9,7.0,15.8,0.9,7.5,21.9,3.9,3.1,0.5,0.0,0.0,0.0,15.1,16.5,13.6,0.0,0.0,7.8,0.3,11.7,1.9,4.0]}},{"id":"E15","location":"lusaka","place":"Lusaka district","district":"Lusaka","province":"Lusaka","start":"2025-02-22","end":"2025-02-24","type":"flash","source":"GDACS FL 1103135 and ECHO Daily Flash 25 Feb 2025 citing DMMU","peak_date":"2025-02-24","rain_48h":16.1,"rain_ratio":0.29,"antecedent":61.8,"wet_ratio":0.67,"river_ratio":0.23,"score":25.3,"level":"LOW","old_score_poor_clay":33.5,"old_score_moderate_loam":19.5,"percentile":0.614,"series":{"dates":["2025-01-23","2025-01-24","2025-01-25","2025-01-26","2025-01-27","2025-01-28","2025-01-29","2025-01-30","2025-01-31","2025-02-01","2025-02-02","2025-02-03","2025-02-04","2025-02-05","2025-02-06","2025-02-07","2025-02-08","2025-02-09","2025-02-10","2025-02-11","2025-02-12","2025-02-13","2025-02-14","2025-02-15","2025-02-16","2025-02-17","2025-02-18","2025-02-19","2025-02-20","2025-02-21","2025-02-22","2025-02-23","2025-02-24","2025-02-25","2025-02-26","2025-02-27","2025-02-28","2025-03-01","2025-03-02","2025-03-03","2025-03-04","2025-03-05","2025-03-06","2025-03-07","2025-03-08","2025-03-09","2025-03-10","2025-03-11"],"score":[28.8,23.6,19.7,17.6,19.0,24.3,39.3,49.5,39.8,29.8,32.8,32.9,24.5,20.1,17.2,15.2,14.6,14.0,13.3,21.1,23.9,19.0,23.9,27.0,20.8,22.3,26.3,25.2,24.2,22.8,22.5,24.7,25.3,31.8,32.3,32.1,39.0,38.3,29.1,23.6,20.4,17.8,16.7,15.1,14.0,14.0,12.6,11.5],"rain":[5.2,4.6,0.6,1.9,7.2,12.1,30.1,17.0,5.2,0.9,18.3,2.1,0.5,0.4,0.1,0.4,1.1,1.6,1.2,16.1,4.2,3.5,14.5,3.9,0.9,11.1,12.3,4.5,6.5,2.8,9.7,7.1,9.0,17.4,8.2,13.2,20.2,10.2,1.2,0.8,0.8,0.0,2.1,0.1,2.0,1.8,0.8,1.1]}},{"id":"E16","location":"lusaka","place":"Lusaka district","district":"Lusaka","province":"Lusaka","start":"2025-04-18","end":"2025-04-26","type":"flash","source":"Open Zambia, 29 Apr 2025: heavy rain the previous week","peak_date":"2025-04-18","rain_48h":6.7,"rain_ratio":0.12,"antecedent":6.9,"wet_ratio":0.07,"river_ratio":0.02,"score":5.6,"level":"LOW","old_score_poor_clay":33.5,"old_score_moderate_loam":19.5,"percentile":0.128,"series":{"dates":["2025-03-19","2025-03-20","2025-03-21","2025-03-22","2025-03-23","2025-03-24","2025-03-25","2025-03-26","2025-03-27","2025-03-28","2025-03-29","2025-03-30","2025-03-31","2025-04-01","2025-04-02","2025-04-03","2025-04-04","2025-04-05","2025-04-06","2025-04-07","2025-04-08","2025-04-09","2025-04-10","2025-04-11","2025-04-12","2025-04-13","2025-04-14","2025-04-15","2025-04-16","2025-04-17","2025-04-18","2025-04-19","2025-04-20","2025-04-21","2025-04-22","2025-04-23","2025-04-24","2025-04-25","2025-04-26","2025-04-27","2025-04-28","2025-04-29","2025-04-30","2025-05-01","2025-05-02","2025-05-03","2025-05-04","2025-05-05","2025-05-06","2025-05-07","2025-05-08","2025-05-09","2025-05-10","2025-05-11"],"score":[9.4,8.4,7.5,6.8,7.1,6.3,5.1,4.5,4.0,3.5,3.1,3.1,2.6,2.7,3.1,2.8,2.2,1.8,1.6,1.4,1.3,1.1,1.0,1.6,2.2,2.3,1.9,1.2,3.2,5.5,5.6,5.4,4.6,3.7,3.6,3.1,2.5,2.2,2.0,1.8,1.6,1.4,1.2,1.1,1.2,2.7,2.6,1.6,1.4,1.2,1.1,1.0,0.9,0.7],"rain":[0.0,0.0,0.1,0.3,1.7,0.1,0.0,0.0,0.0,0.0,0.2,0.6,0.0,1.1,1.0,0.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.1,0.8,1.0,0.2,0.0,3.9,4.1,2.6,2.1,0.6,0.0,0.7,0.0,0.0,0.1,0.1,0.0,0.0,0.0,0.0,0.0,0.3,2.7,0.2,0.0,0.0,0.0,0.0,0.0,0.0,0.0]}},{"id":"E17","location":"lundazi","place":"Lundazi","district":"Lundazi","province":"Eastern","start":"2025-12-27","end":"2025-12-30","type":"flash","source":"International Charter activation 1009: flooding on 30 Dec 2025 after several days of heavy rain","peak_date":"2025-12-30","rain_48h":107.4,"rain_ratio":2.47,"antecedent":96.0,"wet_ratio":1.28,"river_ratio":null,"score":92.5,"level":"HIGH","old_score_poor_clay":71.5,"old_score_moderate_loam":57.5,"percentile":0.999,"series":{"dates":["2025-11-27","2025-11-28","2025-11-29","2025-11-30","2025-12-01","2025-12-02","2025-12-03","2025-12-04","2025-12-05","2025-12-06","2025-12-07","2025-12-08","2025-12-09","2025-12-10","2025-12-11","2025-12-12","2025-12-13","2025-12-14","2025-12-15","2025-12-16","2025-12-17","2025-12-18","2025-12-19","2025-12-20","2025-12-21","2025-12-22","2025-12-23","2025-12-24","2025-12-25","2025-12-26","2025-12-27","2025-12-28","2025-12-29","2025-12-30","2025-12-31","2026-01-01","2026-01-02","2026-01-03","2026-01-04","2026-01-05","2026-01-06","2026-01-07","2026-01-08","2026-01-09","2026-01-10","2026-01-11","2026-01-12","2026-01-13","2026-01-14"],"score":[20.1,18.5,19.6,17.9,15.1,13.6,12.2,11.0,9.9,8.9,9.7,9.1,7.9,9.6,16.0,29.4,25.5,19.0,27.1,25.5,31.2,36.9,30.8,27.0,26.6,27.1,26.5,24.3,26.8,25.9,37.3,67.6,76.1,92.5,100.0,63.0,57.4,50.5,63.9,68.2,63.1,67.2,63.5,60.3,56.1,52.8,56.9,51.2,43.8],"rain":[0.2,0.5,3.9,0.0,0.0,0.0,0.0,0.0,0.0,0.0,2.2,0.2,0.4,3.3,9.5,19.8,0.4,1.1,13.2,0.5,15.1,10.2,0.7,2.3,3.0,4.8,3.5,1.9,7.8,2.2,20.6,43.1,37.1,70.3,7.7,9.2,0.4,0.3,17.9,5.8,11.3,11.1,6.5,7.0,1.0,2.6,11.6,0.2,0.8]}},{"id":"E18","location":"lusaka","place":"Lusaka","district":"Lusaka","province":"Lusaka","start":"2026-01-27","end":"2026-01-28","type":"flash","source":"WION, 30 Jan 2026: intense rain on 28 Jan 2026","peak_date":"2026-01-26","rain_48h":14.8,"rain_ratio":0.26,"antecedent":61.1,"wet_ratio":0.66,"river_ratio":0.3,"score":25.0,"level":"LOW","old_score_poor_clay":33.5,"old_score_moderate_loam":19.5,"percentile":0.636,"series":{"dates":["2025-12-28","2025-12-29","2025-12-30","2025-12-31","2026-01-01","2026-01-02","2026-01-03","2026-01-04","2026-01-05","2026-01-06","2026-01-07","2026-01-08","2026-01-09","2026-01-10","2026-01-11","2026-01-12","2026-01-13","2026-01-14","2026-01-15","2026-01-16","2026-01-17","2026-01-18","2026-01-19","2026-01-20","2026-01-21","2026-01-22","2026-01-23","2026-01-24","2026-01-25","2026-01-26","2026-01-27","2026-01-28","2026-01-29","2026-01-30","2026-01-31","2026-02-01","2026-02-02","2026-02-03","2026-02-04","2026-02-05","2026-02-06","2026-02-07","2026-02-08","2026-02-09","2026-02-10","2026-02-11","2026-02-12"],"score":[21.2,17.3,14.4,13.8,13.2,11.4,10.1,10.2,11.0,10.4,9.2,11.1,16.5,18.3,22.9,28.1,33.2,29.9,29.0,30.3,36.2,36.3,29.7,27.9,25.1,23.9,22.7,18.8,24.0,25.0,19.1,24.6,23.3,17.1,15.6,14.9,13.9,14.5,14.0,11.9,11.7,17.1,16.5,13.1,12.3,15.1,22.6],"rain":[2.5,0.3,0.0,2.5,1.2,0.4,0.6,2.2,2.0,0.8,0.5,5.2,11.4,6.6,12.1,14.4,18.1,5.4,11.9,8.1,20.7,5.8,4.8,7.5,2.8,7.5,1.8,1.0,12.5,2.3,0.5,15.8,0.8,1.8,0.9,1.6,0.9,2.4,1.4,0.7,3.6,11.2,1.7,2.5,1.5,5.4,15.1]}}],"curve_new":[{"threshold":20,"caught":17,"episodes":6.44,"days":79.6},{"threshold":25,"caught":17,"episodes":7.27,"days":59.3},{"threshold":30,"caught":15,"episodes":6.78,"days":41.1},{"threshold":35,"caught":15,"episodes":5.16,"days":26.9},{"threshold":40,"caught":13,"episodes":3.89,"days":17.3},{"threshold":45,"caught":10,"episodes":2.71,"days":10.8},{"threshold":50,"caught":9,"episodes":1.93,"days":6.7},{"threshold":55,"caught":6,"episodes":1.36,"days":3.9},{"threshold":60,"caught":5,"episodes":0.91,"days":2.2},{"threshold":65,"caught":5,"episodes":0.54,"days":1.3},{"threshold":70,"caught":5,"episodes":0.37,"days":0.8},{"threshold":75,"caught":4,"episodes":0.23,"days":0.4},{"threshold":80,"caught":4,"episodes":0.15,"days":0.3},{"threshold":85,"caught":1,"episodes":0.1,"days":0.2},{"threshold":90,"caught":1,"episodes":0.05,"days":0.1}],"curve_old_mm":[{"threshold":10,"caught":17,"episodes":14.89,"days":67.8},{"threshold":20,"caught":15,"episodes":11.66,"days":30.6},{"threshold":30,"caught":12,"episodes":5.93,"days":11.7},{"threshold":40,"caught":8,"episodes":2.52,"days":4.3},{"threshold":50,"caught":8,"episodes":1.11,"days":1.8},{"threshold":60,"caught":6,"episodes":0.55,"days":0.9},{"threshold":70,"caught":3,"episodes":0.29,"days":0.5},{"threshold":80,"caught":3,"episodes":0.17,"days":0.3},{"threshold":90,"caught":3,"episodes":0.11,"days":0.2},{"threshold":100,"caught":3,"episodes":0.07,"days":0.1},{"threshold":110,"caught":2,"episodes":0.05,"days":0.1},{"threshold":120,"caught":1,"episodes":0.03,"days":0.0},{"threshold":130,"caught":1,"episodes":0.02,"days":0.0},{"threshold":140,"caught":0,"episodes":0.02,"days":0.0},{"threshold":150,"caught":0,"episodes":0.01,"days":0.0}],"old_points":[{"label":"Poor drainage, clay soil, Moderate","threshold":35,"caught":15,"episodes":11.66,"days":30.6},{"label":"Poor drainage, clay soil, High","threshold":65,"caught":3,"episodes":0.07,"days":0.1},{"label":"Moderate drainage, loam, Moderate","threshold":35,"caught":6,"episodes":0.55,"days":0.9},{"label":"Moderate drainage, loam, High","threshold":65,"caught":0,"episodes":0.0,"days":0.0}],"sensitivity":[{"rain":0.4,"wetness":0.2,"river":0.4,"mean_percentile":0.83},{"rain":0.4,"wetness":0.3,"river":0.3,"mean_percentile":0.837},{"rain":0.4,"wetness":0.4,"river":0.2,"mean_percentile":0.839},{"rain":0.5,"wetness":0.2,"river":0.3,"mean_percentile":0.841},{"rain":0.5,"wetness":0.3,"river":0.2,"mean_percentile":0.844},{"rain":0.5,"wetness":0.4,"river":0.1,"mean_percentile":0.845},{"rain":0.6,"wetness":0.2,"river":0.2,"mean_percentile":0.844},{"rain":0.6,"wetness":0.3,"river":0.1,"mean_percentile":0.847},{"rain":0.6,"wetness":0.4,"river":0.0,"mean_percentile":0.848},{"rain":0.7,"wetness":0.2,"river":0.1,"mean_percentile":0.844},{"rain":0.7,"wetness":0.3,"river":0.0,"mean_percentile":0.847}]}</script>
+<script type="application/json" id="geo-data">[{"name":"Central","g":{"type":"Polygon","coordinates":[[[27.31,-15.745],[27.21,-15.741],[27.153,-15.623],[27.066,-15.591],[26.986,-15.619],[26.957,-15.577],[26.821,-15.625],[26.836,-15.671],[26.669,-15.669],[26.656,-15.698],[26.625,-15.673],[26.589,-15.698],[26.572,-15.625],[26.455,-15.667],[26.393,-15.715],[26.441,-15.846],[26.43,-15.963],[26.328,-16.082],[26.471,-16.299],[26.146,-16.36],[25.685,-16.555],[25.659,-16.476],[25.659,-16.405],[25.693,-16.36],[25.662,-16.296],[25.682,-16.191],[25.49,-16.194],[25.433,-16.1],[25.324,-16.05],[25.399,-15.739],[25.363,-15.711],[25.292,-15.758],[25.244,-15.692],[25.276,-15.637],[25.217,-15.589],[25.278,-15.52],[25.246,-15.471],[25.302,-15.449],[25.342,-15.344],[25.318,-15.188],[25.421,-15.14],[25.421,-15.081],[25.465,-15.037],[25.429,-14.887],[25.492,-14.782],[25.482,-14.682],[25.597,-14.536],[26.195,-14.614],[26.193,-14.654],[26.335,-14.731],[26.443,-14.58],[26.524,-14.536],[26.556,-14.455],[26.686,-14.459],[26.802,-14.413],[26.956,-14.42],[26.973,-14.154],[26.859,-14.03],[26.905,-13.983],[26.94,-13.83],[26.88,-13.8],[26.831,-13.726],[27.337,-13.726],[27.402,-13.924],[27.481,-13.875],[27.477,-13.802],[27.544,-13.826],[27.625,-13.649],[27.759,-13.694],[27.827,-13.661],[27.917,-13.784],[27.876,-13.862],[27.901,-13.938],[28.181,-13.887],[28.486,-13.893],[28.656,-13.866],[28.651,-13.753],[28.712,-13.644],[28.839,-13.6],[29.061,-13.4],[29.135,-13.381],[29.179,-13.445],[29.575,-13.212],[29.675,-13.243],[29.646,-13.353],[29.604,-13.361],[29.636,-13.432],[29.811,-13.445],[29.818,-12.147],[29.855,-12.056],[29.925,-12.016],[30.001,-12.003],[30.053,-12.066],[30.052,-12.116],[30.133,-12.196],[30.351,-12.283],[30.449,-12.274],[30.493,-12.31],[30.507,-12.394],[30.437,-12.482],[30.569,-12.54],[30.559,-12.591],[30.602,-12.641],[30.666,-12.611],[30.751,-12.675],[30.754,-12.906],[30.847,-12.948],[30.889,-12.929],[30.929,-12.961],[30.964,-12.939],[31.045,-12.97],[31.102,-13.042],[31.171,-13.03],[31.247,-12.947],[31.354,-12.997],[31.338,-13.071],[31.385,-13.2],[31.364,-13.256],[31.437,-13.331],[31.438,-13.449],[31.333,-13.473],[31.23,-13.587],[31.149,-13.611],[31.127,-13.718],[30.984,-13.8],[30.986,-13.848],[30.902,-13.928],[30.099,-13.932],[30.165,-13.976],[30.189,-14.056],[30.294,-14.099],[30.321,-14.175],[30.232,-14.234],[30.133,-14.368],[30.079,-14.372],[29.978,-14.578],[30.011,-14.645],[29.924,-14.667],[29.904,-14.644],[29.868,-14.685],[29.659,-14.742],[29.588,-14.816],[29.512,-14.818],[29.514,-14.978],[29.374,-14.978],[29.254,-14.871],[29.139,-14.972],[28.976,-14.996],[28.881,-15.163],[28.601,-15.193],[28.484,-15.128],[28.378,-15.127],[28.311,-15.296],[28.338,-15.338],[28.305,-15.32],[28.257,-15.357],[28.013,-15.281],[27.993,-15.304],[27.868,-15.247],[27.77,-15.313],[27.599,-15.03],[27.548,-15.023],[27.494,-15.056],[27.641,-15.365],[27.474,-15.388],[27.463,-15.412],[27.563,-15.48],[27.458,-15.586],[27.406,-15.56],[27.31,-15.745]]]}},{"name":"Copperbelt","g":{"type":"Polygon","coordinates":[[[28.656,-13.866],[28.181,-13.887],[27.901,-13.938],[27.876,-13.862],[27.917,-13.784],[27.839,-13.667],[27.759,-13.694],[27.633,-13.648],[27.544,-13.826],[27.477,-13.802],[27.481,-13.875],[27.402,-13.924],[27.337,-13.726],[26.831,-13.726],[26.79,-13.697],[26.777,-13.632],[26.857,-13.449],[26.91,-13.422],[26.919,-13.374],[26.97,-13.358],[26.963,-13.214],[27.069,-13.122],[27.106,-13.002],[26.893,-12.891],[26.92,-12.816],[26.858,-12.75],[26.899,-12.634],[26.961,-12.619],[27.043,-12.532],[27.099,-12.525],[27.065,-12.482],[27.084,-12.415],[27.058,-12.332],[27.293,-12.365],[27.306,-12.328],[27.447,-12.248],[27.475,-12.258],[27.446,-12.268],[27.465,-12.303],[27.502,-12.283],[27.495,-12.316],[27.571,-12.266],[27.764,-12.294],[27.84,-12.242],[27.934,-12.26],[28.04,-12.341],[28.091,-12.444],[28.138,-12.359],[28.137,-12.41],[28.323,-12.424],[28.512,-12.645],[28.458,-12.743],[28.551,-12.904],[28.628,-12.826],[28.715,-12.888],[28.82,-13.017],[28.84,-13.155],[28.909,-13.189],[28.959,-13.382],[28.998,-13.379],[28.996,-13.427],[29.066,-13.414],[28.839,-13.6],[28.712,-13.644],[28.651,-13.753],[28.656,-13.866]]]}},{"name":"Eastern","g":{"type":"Polygon","coordinates":[[[30.788,-14.788],[30.374,-14.96],[30.223,-14.994],[30.207,-14.816],[30.011,-14.645],[29.978,-14.583],[30.084,-14.366],[30.133,-14.368],[30.232,-14.234],[30.321,-14.175],[30.294,-14.099],[30.189,-14.056],[30.165,-13.976],[30.099,-13.932],[30.902,-13.928],[30.986,-13.848],[30.984,-13.8],[31.127,-13.718],[31.149,-13.611],[31.23,-13.587],[31.338,-13.47],[31.442,-13.427],[31.537,-13.432],[31.577,-13.379],[31.619,-13.376],[31.66,-13.313],[31.649,-13.232],[31.722,-13.187],[31.742,-13.092],[31.809,-13.103],[31.863,-13.022],[31.879,-13.044],[31.905,-12.928],[31.982,-12.903],[32.006,-12.871],[31.985,-12.854],[32.049,-12.796],[32.064,-12.69],[32.1,-12.669],[32.145,-12.547],[32.144,-12.425],[32.279,-12.274],[32.307,-12.192],[32.273,-12.155],[32.279,-12.106],[32.349,-12.06],[32.382,-12.097],[32.513,-12.123],[32.571,-12.181],[32.659,-12.147],[32.692,-12.184],[32.752,-12.183],[32.863,-12.143],[32.925,-12.108],[32.917,-12.038],[33.208,-11.597],[33.284,-11.583],[33.323,-11.812],[33.244,-12.145],[33.292,-12.166],[33.286,-12.238],[33.347,-12.344],[33.45,-12.318],[33.531,-12.365],[33.407,-12.504],[33.29,-12.549],[33.215,-12.63],[33.163,-12.602],[33.071,-12.621],[32.965,-12.77],[32.976,-12.864],[33.043,-12.905],[33.002,-13.118],[33.026,-13.214],[32.947,-13.298],[32.94,-13.412],[32.87,-13.47],[32.854,-13.531],[32.759,-13.583],[32.711,-13.571],[32.69,-13.61],[32.803,-13.655],[32.773,-13.682],[32.852,-13.726],[32.786,-13.776],[32.909,-13.826],[33.023,-14.036],[33.14,-13.94],[33.241,-13.997],[32.47,-14.267],[31.956,-14.401],[31.815,-14.474],[31.666,-14.503],[31.498,-14.604],[30.788,-14.788]]]}},{"name":"Luapula","g":{"type":"Polygon","coordinates":[[[28.628,-11.91],[28.448,-11.82],[28.44,-11.65],[28.394,-11.551],[28.494,-11.246],[28.484,-11.104],[28.546,-10.949],[28.55,-10.854],[28.617,-10.732],[28.698,-10.668],[28.66,-10.629],[28.675,-10.566],[28.63,-10.524],[28.63,-10.307],[28.571,-10.234],[28.618,-10.155],[28.62,-9.948],[28.689,-9.809],[28.609,-9.725],[28.603,-9.604],[28.573,-9.579],[28.609,-9.558],[28.565,-9.561],[28.562,-9.494],[28.509,-9.442],[28.511,-9.364],[28.408,-9.322],[28.37,-9.248],[28.782,-8.93],[28.99,-8.462],[29.56,-8.38],[29.592,-8.394],[29.483,-8.516],[29.481,-8.579],[29.362,-8.723],[29.304,-8.732],[29.284,-8.891],[29.189,-8.947],[29.167,-9.038],[29.099,-9.095],[29.324,-9.211],[29.351,-9.35],[29.315,-9.435],[29.347,-9.531],[29.461,-9.553],[29.457,-9.597],[29.518,-9.607],[29.532,-9.647],[29.804,-9.701],[29.868,-9.807],[29.924,-9.831],[29.909,-9.982],[29.934,-10.054],[29.888,-10.168],[29.833,-10.213],[29.724,-10.214],[29.485,-10.335],[29.416,-10.453],[29.444,-10.494],[29.396,-10.611],[29.333,-10.606],[29.32,-10.653],[29.191,-10.753],[29.2,-10.854],[29.089,-10.925],[29.206,-10.975],[29.296,-11.063],[29.387,-11.105],[29.426,-11.093],[29.37,-10.875],[29.578,-10.759],[29.609,-10.706],[29.66,-10.704],[29.827,-10.815],[29.91,-11.011],[29.813,-11.425],[30.003,-11.228],[30.115,-11.221],[30.469,-11.506],[30.334,-11.743],[30.248,-11.802],[29.798,-11.909],[29.782,-12.007],[29.832,-12.095],[29.813,-12.149],[29.771,-12.149],[29.69,-12.226],[29.585,-12.185],[29.5,-12.239],[29.467,-12.32],[29.541,-12.412],[29.494,-12.451],[29.385,-12.407],[29.341,-12.418],[29.282,-12.368],[29.051,-12.378],[28.964,-12.209],[28.792,-12.053],[28.767,-11.983],[28.72,-11.991],[28.628,-11.91]]]}},{"name":"Lusaka","g":{"type":"Polygon","coordinates":[[[28.954,-15.944],[28.868,-16.046],[28.873,-16.257],[28.844,-16.316],[28.865,-16.377],[28.838,-16.434],[28.497,-16.285],[28.503,-16.066],[28.615,-15.912],[28.453,-15.856],[28.41,-15.804],[28.293,-15.81],[28.244,-15.851],[28.005,-15.723],[27.948,-15.767],[27.907,-15.726],[27.83,-15.75],[27.832,-15.672],[27.765,-15.65],[27.685,-15.675],[27.64,-15.523],[27.463,-15.412],[27.486,-15.383],[27.642,-15.36],[27.494,-15.053],[27.599,-15.03],[27.77,-15.313],[27.868,-15.247],[27.993,-15.304],[28.013,-15.281],[28.257,-15.357],[28.305,-15.32],[28.338,-15.338],[28.311,-15.296],[28.378,-15.127],[28.484,-15.128],[28.601,-15.193],[28.881,-15.163],[28.976,-14.996],[29.139,-14.972],[29.254,-14.871],[29.374,-14.978],[29.514,-14.978],[29.512,-14.818],[29.588,-14.816],[29.659,-14.742],[29.868,-14.685],[29.904,-14.644],[29.924,-14.667],[29.965,-14.637],[30.052,-14.661],[30.188,-14.789],[30.214,-14.836],[30.221,-15.074],[30.274,-15.244],[30.372,-15.338],[30.394,-15.481],[30.363,-15.544],[30.409,-15.622],[30.361,-15.646],[30.261,-15.622],[30.215,-15.657],[30.162,-15.614],[29.982,-15.637],[29.801,-15.607],[29.445,-15.682],[29.218,-15.778],[29.024,-15.946],[28.954,-15.944]]]}},{"name":"Muchinga","g":{"type":"Polygon","coordinates":[[[29.813,-12.149],[29.832,-12.095],[29.782,-12.007],[29.798,-11.909],[30.248,-11.802],[30.334,-11.743],[30.469,-11.506],[30.522,-11.474],[30.548,-11.407],[30.593,-11.393],[30.612,-11.329],[30.686,-11.331],[30.738,-11.205],[30.858,-11.053],[30.902,-11.073],[30.885,-11.037],[30.982,-11.003],[31.016,-10.92],[31.046,-10.957],[31.068,-10.919],[31.092,-10.966],[31.147,-10.919],[31.181,-10.868],[31.149,-10.818],[31.206,-10.81],[31.189,-10.78],[31.154,-10.794],[31.14,-10.749],[31.206,-10.72],[31.279,-10.733],[31.311,-10.706],[31.308,-10.656],[31.342,-10.651],[31.33,-10.624],[31.46,-10.559],[31.499,-10.579],[31.696,-10.519],[31.741,-10.464],[31.827,-10.446],[31.866,-10.329],[31.966,-10.296],[32.005,-10.234],[32.008,-10.078],[32.125,-10.01],[32.189,-9.834],[32.347,-9.744],[32.355,-9.663],[32.277,-9.562],[32.26,-9.379],[32.151,-9.224],[32.185,-9.093],[32.16,-9.058],[32.255,-9.13],[32.437,-9.118],[32.495,-9.151],[32.546,-9.254],[32.755,-9.282],[32.766,-9.319],[32.842,-9.364],[32.96,-9.4],[32.951,-9.492],[33.041,-9.505],[33.015,-9.608],[33.076,-9.63],[33.099,-9.674],[33.125,-9.604],[33.23,-9.625],[33.245,-9.756],[33.395,-9.905],[33.316,-10.069],[33.563,-10.246],[33.539,-10.319],[33.573,-10.447],[33.635,-10.473],[33.622,-10.511],[33.709,-10.597],[33.595,-10.668],[33.452,-10.824],[33.322,-10.829],[33.232,-10.896],[33.268,-10.905],[33.286,-10.999],[33.403,-11.161],[33.277,-11.377],[33.282,-11.438],[33.231,-11.429],[33.225,-11.592],[32.917,-12.038],[32.925,-12.108],[32.697,-12.185],[32.659,-12.147],[32.566,-12.18],[32.513,-12.123],[32.382,-12.097],[32.349,-12.06],[32.279,-12.106],[32.273,-12.155],[32.307,-12.194],[32.263,-12.296],[32.193,-12.346],[32.195,-12.394],[32.144,-12.425],[32.145,-12.547],[32.1,-12.669],[32.064,-12.69],[32.049,-12.796],[31.985,-12.854],[32.006,-12.871],[31.982,-12.903],[31.905,-12.928],[31.879,-13.044],[31.863,-13.022],[31.809,-13.103],[31.742,-13.092],[31.722,-13.187],[31.649,-13.232],[31.66,-13.313],[31.619,-13.376],[31.577,-13.379],[31.537,-13.432],[31.436,-13.426],[31.437,-13.331],[31.364,-13.256],[31.385,-13.2],[31.338,-13.071],[31.356,-13.0],[31.324,-12.965],[31.246,-12.947],[31.171,-13.03],[31.102,-13.042],[31.045,-12.97],[30.964,-12.939],[30.929,-12.961],[30.889,-12.929],[30.847,-12.948],[30.754,-12.906],[30.751,-12.675],[30.666,-12.611],[30.602,-12.641],[30.559,-12.591],[30.569,-12.54],[30.437,-12.482],[30.508,-12.38],[30.506,-12.331],[30.449,-12.274],[30.351,-12.283],[30.133,-12.196],[30.052,-12.116],[30.053,-12.066],[30.001,-12.003],[29.863,-12.047],[29.813,-12.149]]]}},{"name":"North-Western","g":{"type":"Polygon","coordinates":[[[22.003,-12.997],[24.066,-12.998],[23.934,-12.864],[23.9,-12.783],[23.952,-12.535],[24.078,-12.372],[23.974,-12.103],[24.017,-11.825],[23.967,-11.658],[24.029,-11.51],[24.022,-11.437],[24.08,-11.379],[23.998,-11.118],[24.018,-10.976],[23.979,-10.904],[24.006,-10.891],[24.116,-10.914],[24.136,-11.024],[24.293,-11.044],[24.374,-11.089],[24.383,-11.277],[24.338,-11.354],[24.275,-11.384],[24.366,-11.399],[24.434,-11.454],[24.569,-11.441],[24.747,-11.299],[25.338,-11.19],[25.277,-11.356],[25.312,-11.488],[25.287,-11.511],[25.331,-11.62],[25.478,-11.678],[25.509,-11.787],[25.653,-11.728],[25.714,-11.809],[25.828,-11.828],[25.886,-11.805],[25.912,-11.87],[25.99,-11.895],[25.985,-11.945],[26.224,-11.924],[26.33,-11.959],[26.457,-11.914],[26.563,-11.974],[26.711,-12.001],[26.795,-11.96],[26.877,-11.982],[27.008,-11.841],[27.005,-11.746],[27.048,-11.707],[27.021,-11.609],[27.159,-11.599],[27.205,-11.56],[27.233,-11.785],[27.34,-11.828],[27.469,-11.931],[27.469,-12.05],[27.496,-12.057],[27.532,-12.175],[27.629,-12.256],[27.495,-12.316],[27.502,-12.283],[27.465,-12.303],[27.446,-12.268],[27.476,-12.267],[27.475,-12.258],[27.447,-12.248],[27.306,-12.328],[27.293,-12.365],[27.058,-12.332],[27.084,-12.415],[27.065,-12.482],[27.099,-12.525],[27.043,-12.532],[26.883,-12.655],[26.859,-12.756],[26.92,-12.822],[26.89,-12.886],[27.106,-13.002],[27.069,-13.122],[26.956,-13.23],[26.97,-13.358],[26.86,-13.444],[26.773,-13.656],[26.88,-13.8],[26.94,-13.83],[26.905,-13.983],[26.859,-14.03],[26.973,-14.154],[26.972,-14.394],[26.956,-14.42],[26.802,-14.413],[26.686,-14.459],[26.556,-14.455],[26.524,-14.536],[26.443,-14.58],[26.335,-14.731],[26.193,-14.654],[26.2,-14.615],[25.591,-14.525],[25.412,-14.586],[25.041,-14.626],[24.98,-14.588],[24.97,-14.532],[25.135,-14.296],[25.106,-14.212],[24.768,-14.119],[24.739,-14.084],[24.748,-14.02],[24.684,-13.957],[24.641,-13.971],[24.644,-14.015],[24.627,-13.953],[24.588,-13.987],[24.5,-13.902],[24.485,-13.948],[24.431,-13.958],[24.365,-13.942],[24.325,-13.89],[24.308,-13.935],[24.248,-13.899],[24.141,-13.953],[24.105,-13.937],[24.016,-14.005],[23.822,-13.964],[23.243,-14.198],[23.228,-14.164],[23.196,-14.173],[23.251,-14.057],[23.227,-14.007],[23.154,-14.038],[23.095,-13.992],[23.008,-14.005],[22.916,-13.905],[22.86,-13.886],[22.754,-13.926],[22.728,-14.0],[22.668,-13.991],[22.283,-13.763],[22.114,-13.773],[21.992,-13.728],[22.003,-12.997]]]}},{"name":"Northern","g":{"type":"Polygon","coordinates":[[[29.812,-11.416],[29.91,-11.011],[29.865,-10.867],[29.727,-10.741],[29.609,-10.706],[29.578,-10.759],[29.37,-10.875],[29.361,-10.913],[29.428,-11.031],[29.428,-11.091],[29.394,-11.105],[29.089,-10.925],[29.2,-10.854],[29.191,-10.753],[29.32,-10.653],[29.333,-10.606],[29.396,-10.611],[29.444,-10.494],[29.416,-10.453],[29.485,-10.335],[29.724,-10.214],[29.833,-10.213],[29.888,-10.168],[29.934,-10.054],[29.909,-9.982],[29.924,-9.831],[29.868,-9.807],[29.804,-9.701],[29.532,-9.647],[29.518,-9.607],[29.457,-9.597],[29.461,-9.553],[29.347,-9.531],[29.315,-9.435],[29.351,-9.35],[29.324,-9.211],[29.099,-9.095],[29.167,-9.038],[29.189,-8.947],[29.288,-8.883],[29.304,-8.732],[29.402,-8.68],[29.481,-8.579],[29.487,-8.511],[29.592,-8.394],[29.619,-8.419],[29.698,-8.37],[30.43,-8.273],[30.564,-8.297],[30.796,-8.277],[31.051,-8.603],[31.137,-8.622],[31.245,-8.58],[31.279,-8.632],[31.375,-8.587],[31.407,-8.638],[31.57,-8.704],[31.579,-8.837],[31.679,-8.917],[31.736,-8.923],[31.801,-8.885],[31.941,-8.917],[31.937,-9.019],[31.988,-9.075],[32.16,-9.058],[32.185,-9.093],[32.151,-9.224],[32.26,-9.379],[32.277,-9.562],[32.355,-9.663],[32.347,-9.744],[32.189,-9.834],[32.125,-10.01],[32.008,-10.078],[32.003,-10.241],[31.959,-10.301],[31.863,-10.332],[31.827,-10.446],[31.741,-10.464],[31.674,-10.528],[31.633,-10.518],[31.499,-10.579],[31.46,-10.559],[31.33,-10.624],[31.342,-10.651],[31.308,-10.656],[31.311,-10.706],[31.273,-10.736],[31.213,-10.719],[31.148,-10.743],[31.154,-10.794],[31.189,-10.78],[31.206,-10.81],[31.149,-10.818],[31.181,-10.868],[31.147,-10.919],[31.092,-10.966],[31.067,-10.918],[31.047,-10.957],[31.01,-10.943],[31.025,-10.919],[30.996,-10.933],[30.982,-11.003],[30.885,-11.037],[30.899,-11.076],[30.858,-11.053],[30.739,-11.205],[30.686,-11.331],[30.612,-11.329],[30.593,-11.393],[30.548,-11.407],[30.522,-11.474],[30.472,-11.506],[30.115,-11.221],[30.003,-11.228],[29.812,-11.416]]]}},{"name":"Southern","g":{"type":"Polygon","coordinates":[[[25.973,-17.998],[25.856,-17.963],[25.84,-17.89],[25.689,-17.804],[25.528,-17.853],[25.343,-17.829],[25.096,-17.689],[25.065,-17.609],[24.971,-17.549],[24.986,-17.471],[25.034,-17.42],[25.013,-17.334],[25.11,-17.219],[25.087,-17.175],[25.106,-17.126],[25.169,-17.079],[25.169,-16.956],[25.189,-16.974],[25.245,-16.947],[25.26,-16.906],[25.219,-16.775],[25.239,-16.695],[25.089,-16.644],[25.097,-16.613],[25.011,-16.529],[25.101,-16.397],[25.289,-16.274],[25.369,-16.133],[25.433,-16.1],[25.49,-16.194],[25.678,-16.187],[25.662,-16.296],[25.693,-16.36],[25.659,-16.405],[25.659,-16.476],[25.699,-16.556],[26.146,-16.36],[26.471,-16.299],[26.328,-16.082],[26.43,-15.963],[26.441,-15.846],[26.393,-15.715],[26.455,-15.667],[26.572,-15.625],[26.589,-15.698],[26.625,-15.673],[26.656,-15.698],[26.669,-15.669],[26.836,-15.671],[26.821,-15.625],[26.957,-15.577],[26.986,-15.619],[27.066,-15.591],[27.153,-15.623],[27.21,-15.741],[27.279,-15.72],[27.307,-15.747],[27.406,-15.56],[27.458,-15.586],[27.566,-15.48],[27.64,-15.523],[27.685,-15.675],[27.765,-15.65],[27.836,-15.675],[27.825,-15.749],[27.907,-15.726],[27.948,-15.767],[28.005,-15.723],[28.247,-15.851],[28.293,-15.81],[28.391,-15.8],[28.453,-15.856],[28.615,-15.912],[28.503,-16.066],[28.497,-16.285],[28.838,-16.434],[28.837,-16.482],[28.762,-16.552],[28.276,-16.728],[28.17,-16.828],[27.838,-16.963],[27.63,-17.248],[27.62,-17.334],[27.132,-17.802],[27.146,-17.841],[27.035,-17.962],[26.826,-17.99],[26.711,-18.079],[26.595,-18.049],[26.554,-17.986],[26.238,-17.913],[26.209,-17.88],[26.093,-17.925],[26.083,-17.974],[25.973,-17.998]]]}},{"name":"Western","g":{"type":"Polygon","coordinates":[[[23.249,-17.535],[23.021,-17.29],[22.829,-17.164],[22.189,-16.541],[22.143,-16.481],[22.082,-16.28],[22.001,-16.212],[21.992,-13.728],[22.114,-13.773],[22.283,-13.763],[22.668,-13.991],[22.728,-14.0],[22.754,-13.926],[22.86,-13.886],[22.916,-13.905],[23.008,-14.005],[23.095,-13.992],[23.154,-14.038],[23.227,-14.007],[23.251,-14.057],[23.196,-14.173],[23.228,-14.164],[23.243,-14.198],[23.822,-13.964],[24.016,-14.005],[24.105,-13.937],[24.141,-13.953],[24.248,-13.899],[24.308,-13.935],[24.325,-13.89],[24.365,-13.942],[24.431,-13.958],[24.485,-13.948],[24.5,-13.902],[24.588,-13.987],[24.627,-13.953],[24.644,-14.015],[24.641,-13.971],[24.684,-13.957],[24.748,-14.02],[24.739,-14.084],[24.768,-14.119],[25.106,-14.212],[25.135,-14.296],[24.97,-14.532],[25.005,-14.606],[25.196,-14.623],[25.596,-14.531],[25.482,-14.682],[25.492,-14.782],[25.429,-14.887],[25.465,-15.037],[25.421,-15.081],[25.421,-15.14],[25.318,-15.188],[25.342,-15.344],[25.302,-15.449],[25.246,-15.471],[25.278,-15.52],[25.217,-15.589],[25.276,-15.637],[25.244,-15.692],[25.292,-15.758],[25.363,-15.711],[25.399,-15.739],[25.39,-15.846],[25.315,-16.015],[25.362,-16.087],[25.433,-16.1],[25.319,-16.186],[25.281,-16.282],[25.101,-16.397],[25.011,-16.529],[25.097,-16.613],[25.089,-16.644],[25.239,-16.695],[25.219,-16.775],[25.26,-16.906],[25.245,-16.947],[25.189,-16.974],[25.169,-16.956],[25.169,-17.079],[25.106,-17.126],[25.087,-17.175],[25.11,-17.219],[25.013,-17.334],[25.034,-17.42],[24.986,-17.471],[24.971,-17.549],[24.702,-17.493],[24.571,-17.536],[24.457,-17.477],[24.243,-17.469],[23.438,-17.636],[23.409,-17.586],[23.249,-17.535]]]}}]</script>
+<script type="application/json" id="places-data">[{"name":"Lusaka (Kanyama)","lat":-15.445,"lon":28.245},{"name":"Chongwe","lat":-15.33,"lon":28.68},{"name":"Kafue","lat":-15.77,"lon":28.18},{"name":"Mumbwa","lat":-14.98,"lon":27.06},{"name":"Kabwe","lat":-14.45,"lon":28.45},{"name":"Mazabuka","lat":-15.86,"lon":27.75},{"name":"Monze","lat":-16.28,"lon":27.48},{"name":"Namwala","lat":-15.75,"lon":26.44},{"name":"Gwembe (Munyumbwe)","lat":-16.62,"lon":27.73},{"name":"Choma","lat":-16.81,"lon":26.98},{"name":"Livingstone","lat":-17.85,"lon":25.86},{"name":"Mambwe (Malambo)","lat":-13.1,"lon":31.8},{"name":"Lumezi","lat":-12.98,"lon":32.7},{"name":"Lundazi","lat":-12.29,"lon":33.18},{"name":"Lusangazi (Msanzala)","lat":-14.1,"lon":31.4},{"name":"Chipata","lat":-13.63,"lon":32.65},{"name":"Samfya","lat":-11.36,"lon":29.55},{"name":"Mansa","lat":-11.2,"lon":28.89},{"name":"Kasama","lat":-10.21,"lon":31.18},{"name":"Kitwe","lat":-12.8,"lon":28.21},{"name":"Ndola","lat":-12.97,"lon":28.64},{"name":"Chingola","lat":-12.53,"lon":27.85},{"name":"Solwezi","lat":-12.17,"lon":26.39},{"name":"Mongu","lat":-15.25,"lon":23.13},{"name":"Senanga","lat":-16.12,"lon":23.27},{"name":"Lukulu","lat":-14.38,"lon":23.24}]</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<script>
+(function () {
+  const BT = JSON.parse(document.getElementById("bt-data").textContent);
+  const GEO = JSON.parse(document.getElementById("geo-data").textContent);
+  const PLACES = JSON.parse(document.getElementById("places-data").textContent);
+
+  // ---------------------------------------------------------------- scoring (mirrors floodsense/scoring.py)
+  const S = { w: { rain: 0.5, wetness: 0.3, river: 0.2 }, cap: { rain: 1.5, wetness: 1.5, river: 2.0 }, decay: 0.9, days: 30, minRiver: 1.0, MOD: 35, HIGH: 50 };
+  const DRAIN = { good: 0.9, moderate: 1.0, poor: 1.15 };
+  const hy = d => { const y = +d.slice(0, 4), m = +d.slice(5, 7); return m >= 7 ? y : y - 1; };
+  const median = a => { const s = [...a].sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+  function api(rainBefore) { const r = rainBefore.slice(-S.days); let t = 0; for (let i = 0; i < r.length; i++) { const v = r[r.length - 1 - i]; if (v != null) t += v * Math.pow(S.decay, i); } return t; }
+  function rainClim(dates, rain) {
+    const ym = {};
+    for (let i = 1; i < rain.length; i++) { const h = hy(dates[i]); if (h < 1991 || h > 2019) continue; const v = rain[i - 1] + rain[i]; ym[h] = Math.max(ym[h] || 0, v); }
+    const apis = [];
+    for (let i = S.days + 2; i < rain.length; i++) { const m = +dates[i].slice(5, 7), h = hy(dates[i]); if ([11, 12, 1, 2, 3].includes(m) && h >= 1991 && h <= 2019) apis.push(api(rain.slice(i - 2 - S.days, i - 1))); }
+    apis.sort((a, b) => a - b);
+    return { rl2: median(Object.values(ym)), api90: apis[Math.floor(0.9 * (apis.length - 1))] };
+  }
+  function riverClim(dates, q) {
+    const ym = {};
+    dates.forEach((d, i) => { const h = hy(d); if (q[i] == null || h < 1997 || h > 2019) return; ym[h] = Math.max(ym[h] || 0, q[i]); });
+    const v = Object.values(ym); return { q2: v.length ? median(v) : 0 };
+  }
+  const capped = (x, c) => Math.max(0, Math.min(x / c, 1));
+  const level = s => s >= S.HIGH ? "HIGH" : s >= S.MOD ? "MODERATE" : "LOW";
+  function hazard(r48, ante, flow, c) {
+    const rr = c.rl2 > 0 ? r48 / c.rl2 : 0, wr = c.api90 > 0 ? ante / c.api90 : 0;
+    const hasRiver = flow != null && c.q2 >= S.minRiver, qr = hasRiver ? flow / c.q2 : null;
+    const p = { rain: S.w.rain * capped(rr, S.cap.rain), wetness: S.w.wetness * capped(wr, S.cap.wetness), river: S.w.river * (hasRiver ? capped(qr, S.cap.river) : capped(wr, S.cap.wetness)) };
+    const score = 100 * (p.rain + p.wetness + p.river);
+    return { score, points: { rain: 100 * p.rain, wetness: 100 * p.wetness, river: 100 * p.river }, ratios: { rain: rr, wetness: wr, river: qr }, hasRiver };
+  }
+  const exposure = (rel, drainage) => (rel < 5 ? 1.15 : rel < 20 ? 1.0 : 0.85) * DRAIN[drainage];
+  const ADVICE = {
+    HIGH: "Flooding is likely in low-lying areas. Move people, livestock, seed, fertiliser and tools to higher ground today. Avoid crossing streams and flooded roads, and alert neighbours and the District Disaster Management Committee.",
+    MODERATE: "Conditions could turn to flooding. Clear drains and culverts around homes and fields, keep valuables off the floor, and check river levels and Zambia Meteorological Department warnings over the next two days.",
+    LOW: "No flood signal for the next 48 hours. Keep drains clear and keep an eye on forecasts during the rainy season."
+  };
+  window.__floodsense = { rainClim, riverClim, hazard, api, exposure, level };
+
+  // ---------------------------------------------------------------- helpers
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const f1 = x => (x == null || Number.isNaN(x) ? "n/a" : x.toFixed(1));
+  const f2 = x => (x == null || Number.isNaN(x) ? "n/a" : x.toFixed(2));
+  const lvClass = l => (l === "HIGH" ? "bad" : l === "MODERATE" ? "warn" : "good");
+  const charts = {};
+  function opts(yTitle, small) {
+    const ink2 = css("--ink-2"), muted = css("--muted"), line = css("--line");
+    return {
+      responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: !small, position: "top", align: "start", labels: { color: ink2, boxWidth: 12, boxHeight: 12, usePointStyle: true, padding: 14, font: { size: 12 } } },
+        tooltip: { backgroundColor: css("--surface"), titleColor: css("--ink"), bodyColor: ink2, borderColor: line, borderWidth: 1, padding: 10, usePointStyle: true }
+      },
+      scales: {
+        x: { grid: { display: false }, border: { color: line }, ticks: { color: muted, maxRotation: 0, autoSkip: true, font: { size: small ? 9 : 11 } } },
+        y: { grid: { color: line, drawTicks: false }, border: { display: false }, ticks: { color: muted, padding: 4, font: { size: small ? 9 : 11 } }, title: { display: !!yTitle, text: yTitle, color: muted, font: { size: 11 } } }
+      }
+    };
+  }
+  const hline = (vals) => ({
+    id: "hline", afterDatasetsDraw(c) {
+      const y = c.scales.y, g = c.ctx; g.save();
+      vals.forEach(([v, col]) => { if (v < y.min || v > y.max) return; const p = y.getPixelForValue(v); g.strokeStyle = col; g.setLineDash([4, 4]); g.lineWidth = 1; g.beginPath(); g.moveTo(c.chartArea.left, p); g.lineTo(c.chartArea.right, p); g.stroke(); });
+      g.restore();
+    }
+  });
+
+  // ---------------------------------------------------------------- map
+  const svg = document.getElementById("map"), NS = "http://www.w3.org/2000/svg";
+  const lat0 = -13.3, kx = Math.cos(lat0 * Math.PI / 180), SC = 60, LON0 = 21.8, LAT0 = -8.0;
+  const px = (lon, lat) => [(lon - LON0) * kx * SC, (LAT0 - lat) * SC];
+  const unpx = (x, y) => [x / (kx * SC) + LON0, LAT0 - y / SC];
+  svg.setAttribute("viewBox", `0 0 ${((33.9 - LON0) * kx * SC).toFixed(0)} ${((18.2 + LAT0) * SC).toFixed(0)}`);
+  const el = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const ring = r => r.map((p, i) => (i ? "L" : "M") + px(p[0], p[1]).map(v => v.toFixed(1)).join(",")).join("") + "Z";
+  const pathOf = g => g.type === "Polygon" ? g.coordinates.map(ring).join("") : g.coordinates.map(poly => poly.map(ring).join("")).join("");
+  const gProv = el("g", { class: "prov" }); svg.appendChild(gProv);
+  GEO.forEach(p => gProv.appendChild(el("path", { d: pathOf(p.g) })));
+  const evLocs = new Set(BT.places.map(p => `${p.lat},${p.lon}`));
+  const gPts = el("g", {}); svg.appendChild(gPts);
+  PLACES.forEach(p => {
+    const [x, y] = px(p.lon, p.lat), isEv = evLocs.has(`${p.lat},${p.lon}`);
+    const c = el("circle", { cx: x.toFixed(1), cy: y.toFixed(1), r: isEv ? 5 : 3.5, class: isEv ? "ptev" : "pt" });
+    c.appendChild(el("title", {})).textContent = p.name + (isEv ? " (flood in backtest)" : "");
+    c.addEventListener("click", e => { e.stopPropagation(); choose(p.lat, p.lon, p.name); });
+    gPts.appendChild(c);
+  });
+  const sel = el("g", {}); svg.appendChild(sel);
+  function inside(lon, lat) {
+    // ray casting over every province ring
+    let hit = false;
+    const test = r => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, yi] = r[i], [xj, yj] = r[j]; if ((yi > lat) !== (yj > lat) && lon < (xj - xi) * (lat - yi) / (yj - yi) + xi) c = !c; } return c; };
+    GEO.forEach(p => { const polys = p.g.type === "Polygon" ? [p.g.coordinates] : p.g.coordinates; polys.forEach(poly => { if (test(poly[0])) hit = true; }); });
+    return hit;
+  }
+  svg.addEventListener("click", e => {
+    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const q = pt.matrixTransform(svg.getScreenCTM().inverse()), [lon, lat] = unpx(q.x, q.y);
+    if (!inside(lon, lat)) { document.getElementById("ptLabel").textContent = "That point is outside Zambia. Pick a point inside the border."; return; }
+    choose(+lat.toFixed(3), +lon.toFixed(3), null);
+  });
+
+  // ---------------------------------------------------------------- picker
+  const pp = document.getElementById("placePick");
+  pp.innerHTML = `<option value="">Choose a town</option>` + PLACES.map((p, i) => `<option value="${i}">${p.name}</option>`).join("");
+  pp.addEventListener("change", () => { if (pp.value !== "") { const p = PLACES[+pp.value]; choose(p.lat, p.lon, p.name); } });
+  let PT = { lat: -15.445, lon: 28.245, name: "Lusaka (Kanyama)" };
+  function choose(lat, lon, name) {
+    PT = { lat, lon, name };
+    const idx = PLACES.findIndex(p => p.name === name); pp.value = idx >= 0 ? String(idx) : "";
+    document.getElementById("ptLabel").textContent = `${name ? name + ", " : "Map point, "}${Math.abs(lat).toFixed(3)}°S ${lon.toFixed(3)}°E`;
+    sel.innerHTML = ""; const [x, y] = px(lon, lat);
+    sel.appendChild(el("circle", { cx: x, cy: y, r: 9, class: "selring" })); sel.appendChild(el("circle", { cx: x, cy: y, r: 3, class: "seldot" }));
+  }
+  choose(PT.lat, PT.lon, PT.name);
+
+  // ---------------------------------------------------------------- live check
+  const get = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(`${r.status} from ${new URL(url).host}`); return r.json(); };
+  const cacheKey = (lat, lon) => `fsz-clim-${lat.toFixed(3)}-${lon.toFixed(3)}`;
+  function cacheGet(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function cacheSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } }
+
+  async function climate(lat, lon) {
+    const k = cacheKey(lat, lon), hit = cacheGet(k); if (hit) return hit;
+    const [a, f] = await Promise.all([
+      get(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=1991-01-01&end_date=2020-06-30&daily=precipitation_sum&timezone=Africa%2FLusaka`),
+      get(`https://flood-api.open-meteo.com/v1/flood?latitude=${lat}&longitude=${lon}&daily=river_discharge&start_date=1997-01-01&end_date=2020-06-30`)
+    ]);
+    const c = { ...rainClim(a.daily.time, a.daily.precipitation_sum.map(v => v || 0)), ...riverClim(f.daily.time, f.daily.river_discharge) };
+    cacheSet(k, c); return c;
+  }
+  async function terrain(lat, lon) {
+    const pts = []; for (let i = -5; i <= 5; i++) for (let j = -5; j <= 5; j++) pts.push([lat + i * 0.002, lon + j * 0.002]);
+    let h = [];
+    for (let k = 0; k < pts.length; k += 100) {
+      const ch = pts.slice(k, k + 100);
+      const d = await get(`https://api.open-meteo.com/v1/elevation?latitude=${ch.map(p => p[0].toFixed(4)).join(",")}&longitude=${ch.map(p => p[1].toFixed(4)).join(",")}`);
+      h = h.concat(d.elevation);
+    }
+    const centre = h[Math.floor(h.length / 2)];
+    return { elevation: centre, rel: centre - Math.min(...h) };
+  }
+  const btn = document.getElementById("checkBtn"), box = document.getElementById("result");
+  btn.addEventListener("click", run);
+  async function run() {
+    const { lat, lon, name } = PT, drainage = document.getElementById("drainPick").value;
+    btn.disabled = true; box.innerHTML = `<p class="muted">Fetching the forecast, 29 years of rainfall, river flow and terrain for ${name || "this point"}...</p>`;
+    try {
+      const [fc, rv, clim, ter] = await Promise.all([
+        get(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=precipitation_sum&past_days=32&forecast_days=3&timezone=Africa%2FLusaka`),
+        get(`https://flood-api.open-meteo.com/v1/flood?latitude=${lat}&longitude=${lon}&daily=river_discharge&past_days=7&forecast_days=7`),
+        climate(lat, lon), terrain(lat, lon)
+      ]);
+      const days = fc.daily.time, rain = fc.daily.precipitation_sum.map(v => v || 0), i = days.length - 3;
+      const r48 = rain[i] + rain[i + 1], ante = api(rain.slice(0, i));
+      const qd = rv.daily.time, q = rv.daily.river_discharge, qi = 7, qw = [q[qi], q[qi + 1]].filter(v => v != null);
+      const flow = qw.length ? Math.max(...qw) : null;
+      const h = hazard(r48, ante, flow, clim), ex = exposure(ter.rel, drainage), risk = Math.min(100, h.score * ex), lv = level(risk);
+      renderResult({ name, lat, lon, drainage, r48, ante, flow, clim, ter, h, ex, risk, lv, today: days[i] });
+      drawRain(days, rain, i); drawRiver(qd, q, qi, clim, h.hasRiver);
+    } catch (e) {
+      box.innerHTML = `<p><b>Couldn’t reach the data service.</b> ${e.message}. Check your connection and try again in a minute.</p>`;
+      document.getElementById("rainCard").hidden = true; document.getElementById("riverCard").hidden = true;
+    } finally { btn.disabled = false; }
+  }
+  function bar(label, value, ratio, cap, pts, note) {
+    const w = ratio == null ? 0 : Math.min(ratio / cap, 1) * 100;
+    return `<div class="factor"><div class="fhead"><span class="k">${label}</span><span class="mono">${pts.toFixed(1)} pts</span></div>
+      <div class="fbar"><span style="width:${w.toFixed(0)}%"></span></div><span class="sub">${value}${note ? " " + note : ""}</span></div>`;
+  }
+  function renderResult(r) {
+    const { h, clim, ter } = r;
+    const terrainTxt = ter.rel < 5 ? "low-lying" : ter.rel < 20 ? "gently raised" : "on higher ground";
+    box.innerHTML = `<div class="reshead"><div><h3>${r.name || "Map point"}<small>Next 48 hours from ${r.today}, ${Math.abs(r.lat).toFixed(3)}°S ${r.lon.toFixed(3)}°E</small></h3></div>
+        <div class="riskbox ${lvClass(r.lv)}"><span class="lv">${r.lv}</span><span class="num">${r.risk.toFixed(0)}<small>/100</small></span></div></div>
+      <p class="advice">${ADVICE[r.lv]}</p>
+      <div class="factors">
+        ${bar("Rain, today and tomorrow", `${f1(r.r48)} mm, ${f2(h.ratios.rain)} times the 2-day fall this place gets about once in two years (${f1(clim.rl2)} mm).`, h.ratios.rain, S.cap.rain, h.points.rain)}
+        ${bar("Ground wetness, last 30 days", `Index ${f1(r.ante)}, ${f2(h.ratios.wetness)} times a wet-season high here (${f1(clim.api90)}).`, h.ratios.wetness, S.cap.wetness, h.points.wetness)}
+        ${h.hasRiver ? bar("River flow", `${f1(r.flow)} m³/s, ${f2(h.ratios.river)} times the river’s usual yearly peak (${f1(clim.q2)} m³/s).`, h.ratios.river, S.cap.river, h.points.river)
+                     : bar("River flow", `No sizeable river at this point (usual yearly peak ${f2(clim.q2)} m³/s), so this share follows ground wetness.`, h.ratios.wetness, S.cap.wetness, h.points.river)}
+      </div>
+      <div class="decades"><div><span>Hazard</span><b>${h.score.toFixed(0)}</b></div><div><span>Exposure</span><b>× ${r.ex.toFixed(2)}</b></div><div><span>Risk</span><b>${r.risk.toFixed(0)}</b></div></div>
+      <p class="sub" style="font-size:0.88rem;margin:10px 0 0">Terrain: ${f1(ter.elevation)} m above sea level and ${f1(ter.rel)} m above the lowest ground within about 1 km, so ${terrainTxt}. Drainage set to ${r.drainage}. Hazard was tested against past floods; the exposure adjustment is judgement and wasn’t.</p>`;
+  }
+  function drawRain(days, rain, i) {
+    document.getElementById("rainCard").hidden = false;
+    charts.rain && charts.rain.destroy();
+    const from = i - 14, lab = days.slice(from, i + 2).map(d => d.slice(5)), vals = rain.slice(from, i + 2);
+    const o = opts("mm"); o.plugins.legend.display = false;
+    o.plugins.tooltip.callbacks = { label: c => ` ${c.raw.toFixed(1)} mm${c.dataIndex >= 14 ? " (forecast)" : ""}` };
+    charts.rain = new Chart(document.getElementById("cRain"), { type: "bar", data: { labels: lab, datasets: [{ data: vals, backgroundColor: vals.map((_, k) => k >= 14 ? css("--s-rains") : css("--obs-bar")), borderRadius: 3 }] }, options: o });
+  }
+  function drawRiver(days, q, qi, clim, hasRiver) {
+    const card = document.getElementById("riverCard"); card.hidden = false;
+    charts.river && charts.river.destroy();
+    document.getElementById("riverSub").textContent = hasRiver ? `GloFAS daily discharge at the nearest river cell, last 7 days and 7-day forecast, in m³/s. The dashed line is the river’s usual yearly peak (${clim.q2.toFixed(1)} m³/s).` : "GloFAS shows no sizeable river at this point, so river flow doesn’t enter the score.";
+    const o = opts("m³/s"); o.plugins.legend.display = false;
+    o.plugins.tooltip.callbacks = { label: c => ` ${c.raw == null ? "n/a" : c.raw.toFixed(2)} m³/s${c.dataIndex >= qi ? " (forecast)" : ""}` };
+    charts.river = new Chart(document.getElementById("cRiver"), { type: "line", data: { labels: days.map(d => d.slice(5)), datasets: [{ data: q, borderColor: css("--s-rains"), backgroundColor: css("--s-rains"), pointRadius: 2, segment: { borderDash: ctx => ctx.p0DataIndex >= qi ? [5, 4] : undefined } }] }, options: o, plugins: hasRiver ? [hline([[clim.q2, css("--muted")]])] : [] });
+  }
+
+  // ---------------------------------------------------------------- backtest
+  const Sm = BT.summary;
+  const oldPC = BT.old_points.find(p => p.label.startsWith("Poor") && p.label.endsWith("Moderate"));
+  const oldHigh = BT.old_points.find(p => p.label.startsWith("Poor") && p.label.endsWith("High"));
+  document.getElementById("tiles").innerHTML = [
+    ["Floods reaching MODERATE", `${Sm.caught_moderate} of ${Sm.n_events}`, `All ${Sm.n_outside_lusaka} outside Lusaka, ${Sm.caught_moderate_lusaka} of ${Sm.n_lusaka} in Lusaka`],
+    ["Floods reaching HIGH", `${Sm.caught_high} of ${Sm.n_events}`, `Old calculator’s HIGH: ${oldHigh.caught} of ${Sm.n_events}`],
+    ["MODERATE alerts with no flood", `${Sm.moderate.episodes.toFixed(1)} a season`, `Old rule at the same catch rate: ${oldPC.episodes.toFixed(1)}`],
+    ["HIGH alerts with no flood", `${Sm.high.episodes.toFixed(1)} a season`, `Per place, November to April, ${Sm.n_seasons} seasons`]
+  ].map(([k, v, s]) => `<div class="tile card"><span class="k">${k}</span><span class="big">${v}</span><span class="sub">${s}</span></div>`).join("");
+
+  function drawCurve() {
+    charts.curve && charts.curve.destroy();
+    const o = opts("Floods caught (of 18)");
+    o.interaction = { mode: "nearest", intersect: true };
+    o.scales.x = { type: "linear", min: 0, max: 12, grid: { color: css("--line") }, border: { color: css("--line") }, ticks: { color: css("--muted") }, title: { display: true, text: "Alert episodes a season with no recorded flood, per place", color: css("--muted"), font: { size: 11 } } };
+    o.scales.y.min = 0; o.scales.y.max = 18; o.scales.y.ticks.stepSize = 3;
+    o.plugins.tooltip.callbacks = { label: c => ` ${c.dataset.label}: ${c.raw.t}, caught ${c.raw.y} of 18, ${c.raw.x.toFixed(1)} alert episodes a season` };
+    const nw = BT.curve_new.filter(c => c.threshold >= 30).map(c => ({ x: c.episodes, y: c.caught, t: `score ${c.threshold}` }));
+    const old = BT.curve_old_mm.filter(c => c.threshold >= 20).map(c => ({ x: c.episodes, y: c.caught, t: `${c.threshold} mm in 48 h` }));
+    charts.curve = new Chart(document.getElementById("cCurve"), {
+      type: "line", data: { datasets: [
+        { label: "New score", data: nw, borderColor: css("--s-rains"), backgroundColor: css("--s-rains"), pointRadius: nw.map(p => p.t === "score 35" || p.t === "score 50" ? 6 : 3), borderWidth: 2 },
+        { label: "Plain 48-hour rainfall rule", data: old, borderColor: css("--obs"), backgroundColor: css("--obs"), borderDash: [5, 4], pointRadius: 3, borderWidth: 1.5 },
+        { label: "Old calculator (poor drainage, clay)", data: [{ x: oldPC.episodes, y: oldPC.caught, t: "MODERATE" }, { x: oldHigh.episodes, y: oldHigh.caught, t: "HIGH" }], showLine: false, pointStyle: "rectRot", pointRadius: 8, borderColor: css("--bad"), backgroundColor: css("--bad") }
+      ] }, options: o
+    });
+  }
+
+  function drawEvents() {
+    const grid = document.getElementById("evGrid"); grid.innerHTML = "";
+    Object.keys(charts).filter(k => k.startsWith("ev")).forEach(k => { charts[k].destroy(); delete charts[k]; });
+    const evs = [...BT.events].sort((a, b) => (a.location === "lusaka") - (b.location === "lusaka") || a.start.localeCompare(b.start));
+    evs.forEach(e => {
+      const fig = document.createElement("div"); fig.className = "sm";
+      fig.innerHTML = `<h5>${e.district}, ${new Date(e.start).toLocaleDateString("en-GB", { month: "short", year: "numeric" })} <span class="chip ${lvClass(e.level)}">${e.level} ${e.score.toFixed(0)}</span></h5><div class="sm-box"><canvas></canvas></div>`;
+      grid.appendChild(fig);
+      const d = e.series.dates, s = e.series.score, i0 = d.indexOf(e.start), i1 = d.indexOf(e.end);
+      const shade = { id: "shade", beforeDatasetsDraw(c) { const x = c.scales.x, g = c.ctx; g.save(); g.fillStyle = css("--band-ev"); const a = x.getPixelForValue(i0), b = x.getPixelForValue(i1); g.fillRect(a - 3, c.chartArea.top, Math.max(6, b - a + 6), c.chartArea.bottom - c.chartArea.top); g.restore(); } };
+      const o = opts("", true); o.scales.y.min = 0; o.scales.y.max = 100; o.scales.y.ticks.stepSize = 50;
+      o.scales.x.ticks.maxTicksLimit = 3; o.scales.x.ticks.callback = (v, k) => d[k] ? d[k].slice(5) : "";
+      o.plugins.tooltip.callbacks = { title: it => d[it[0].dataIndex], label: c => ` score ${c.raw.toFixed(0)}, rain ${e.series.rain[c.dataIndex].toFixed(1)} mm` };
+      charts["ev" + e.id] = new Chart(fig.querySelector("canvas"), { type: "line", data: { labels: d.map((_, k) => k), datasets: [{ data: s, borderColor: css("--s-rains"), borderWidth: 1.6, pointRadius: 0, fill: false }] }, options: o, plugins: [shade, hline([[S.MOD, css("--warn")], [S.HIGH, css("--bad")]])] });
+    });
+  }
+
+  function tables() {
+    const rows = [...BT.events].sort((a, b) => a.start.localeCompare(b.start));
+    document.getElementById("evTable").innerHTML = `<thead><tr><th>Flood</th><th>Reported</th><th>Type</th><th class="n">Rain 48 h, mm</th><th class="n">Rain ratio</th><th class="n">Wetness ratio</th><th class="n">River ratio</th><th class="n">Score</th><th>Level</th><th class="n">Old rule*</th></tr></thead><tbody>` +
+      rows.map(e => `<tr title="${e.source.replace(/"/g, "&quot;")}"><td><b>${e.district}</b><br><span class="muted">${e.place}</span></td><td>${e.start === e.end ? e.start : e.start + " to " + e.end.slice(5)}</td><td>${e.type}</td><td class="n">${e.rain_48h.toFixed(0)}</td><td class="n">${e.rain_ratio.toFixed(2)}</td><td class="n">${e.wet_ratio.toFixed(2)}</td><td class="n">${e.river_ratio == null ? "none" : e.river_ratio.toFixed(2)}</td><td class="n">${e.score.toFixed(0)}</td><td><span class="chip ${lvClass(e.level)}">${e.level}</span></td><td class="n">${e.old_score_poor_clay.toFixed(0)}</td></tr>`).join("") +
+      `</tbody><caption>*Old calculator score with poor drainage and clay soil, the setting most likely to raise an alert. Its HIGH level starts at 65. Hover a row for the source.</caption>`;
+    document.getElementById("plTable").innerHTML = `<thead><tr><th>Place</th><th>Province</th><th class="n">Annual rain, mm</th><th class="n">2-year 2-day fall, mm</th><th class="n">River yearly peak, m³/s</th><th class="n">Height above local low, m</th><th class="n">Days at MODERATE+</th><th class="n">Days at HIGH</th></tr></thead><tbody>` +
+      BT.places.map(p => `<tr><td><b>${p.place}</b></td><td>${p.province}</td><td class="n">${p.mean_annual.toFixed(0)}</td><td class="n">${p.rl2.toFixed(0)}</td><td class="n">${p.q2 < 1 ? "no river" : p.q2.toFixed(1)}</td><td class="n">${p.rel_height.toFixed(0)}</td><td class="n">${p.alert_days_moderate.toFixed(0)}</td><td class="n">${p.alert_days_high.toFixed(0)}</td></tr>`).join("") + "</tbody>";
+  }
+
+  function drawAll() { if (!window.Chart) return; Chart.defaults.font.family = "DM Sans, Segoe UI, system-ui, sans-serif"; drawCurve(); drawEvents(); }
+  tables(); drawAll();
+  if (!window.Chart) window.addEventListener("load", drawAll);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+  new MutationObserver(drawAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+})();
+
+</script>
+</body>
+</html>

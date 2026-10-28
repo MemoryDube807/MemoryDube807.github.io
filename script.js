@@ -43,7 +43,9 @@ const projects = [
     description:
       "Scores flood risk from 48-hour rainfall, elevation, drainage, and soil, then returns a risk level and practical action advisory through a CLI and Flask dashboard.",
     link: "https://github.com/MemoryDube807/flood-risk-calculator",
-    demo: ""
+    demo: "projects/flood-risk-calculator/index.html",
+    demoLabel: "Live tool & report",
+    sameTab: true
   },
   {
     name: "zambia-climate-trend-analysis",
