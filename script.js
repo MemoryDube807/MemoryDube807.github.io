@@ -33,7 +33,9 @@ const projects = [
     description:
       "Processes multi-GCM LARS-WG projections into ensembles and compares rainfall and temperature across Southern Hemisphere hydrological seasons.",
     link: "https://github.com/MemoryDube807/LARS-WG-Climate-Analysis",
-    demo: ""
+    demo: "projects/lars-wg-climate-analysis/index.html",
+    demoLabel: "Dashboard & report",
+    sameTab: true
   },
   {
     name: "flood-risk-calculator",
